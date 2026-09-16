@@ -1,4 +1,6 @@
 import { chromium, type CDPSession, type Page } from 'playwright';
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 
 /* ============================================================
  * DOM INTERACTION & TARGET METADATA MODEL
@@ -614,6 +616,79 @@ export class ModularRulesEngine {
 }
 
 /* ============================================================
+ * PERSISTENCE SINK & NDJSON LOGGER
+ * ============================================================ */
+
+export type InteractionLogRecord = Readonly<{
+  sequence: number;
+  timestamp: string;
+  epochMs: number;
+  documentId: number;
+  loaderId: string;
+  url: string;
+  label: string;
+  screenshotFile: string;
+  screenshotPath: string;
+  byteLength: number;
+  scroll: Readonly<{
+    x: number;
+    y: number;
+  }>;
+  detail: string;
+  domTarget?: TargetElementMeta;
+}>;
+
+export class PersistenceSink {
+  private writeQueue = Promise.resolve();
+  private sequence = 0;
+
+  constructor(
+    public readonly outDir: string,
+    public readonly logFile: string,
+  ) {}
+
+  public enqueue(capture: MilestoneCapture): void {
+    const seq = ++this.sequence;
+    const filename = `nav-${String(capture.documentId).padStart(5, '0')}-${capture.label}.png`;
+    const screenshotPath = join(this.outDir, filename);
+
+    const record: InteractionLogRecord = {
+      sequence: seq,
+      timestamp: new Date().toISOString(),
+      epochMs: Date.now(),
+      documentId: capture.documentId,
+      loaderId: capture.loaderId,
+      url: capture.url,
+      label: capture.label,
+      screenshotFile: filename,
+      screenshotPath,
+      byteLength: capture.frame.buffer.byteLength,
+      scroll: {
+        x: capture.frame.scrollX,
+        y: capture.frame.scrollY,
+      },
+      detail: capture.detail,
+      ...(capture.domTarget ? { domTarget: capture.domTarget } : {}),
+    };
+
+    const line = JSON.stringify(record) + '\n';
+
+    this.writeQueue = this.writeQueue
+      .then(async () => {
+        await writeFile(screenshotPath, capture.frame.buffer);
+        await appendFile(this.logFile, line, 'utf8');
+      })
+      .catch((err) => {
+        console.error(`[Sink] Failed to write ${filename}:`, err);
+      });
+  }
+
+  public async drain(): Promise<void> {
+    await this.writeQueue;
+  }
+}
+
+/* ============================================================
  * IN-PAGE DOM INTERACTION PROBE
  * ============================================================ */
 
@@ -730,6 +805,17 @@ async function main(): Promise<void> {
   ];
   const engine = new ModularRulesEngine(rules);
 
+  // Initialize recording session directory and NDJSON sink
+  const runId = new Date().toISOString().replace(/[:.]/g, '-');
+  const sessionDir = resolve('recordings', `session-${runId}`);
+  await mkdir(sessionDir, { recursive: true });
+  const ndjsonPath = join(sessionDir, 'interactions.ndjson');
+  const sink = new PersistenceSink(sessionDir, ndjsonPath);
+
+  console.log(`Recording session initialized:`);
+  console.log(`  Screenshots: ${sessionDir}`);
+  console.log(`  NDJSON log:  ${ndjsonPath}\n`);
+
   const logCapture = (capture: MilestoneCapture) => {
     const shortLoader = capture.loaderId.slice(0, 8);
     const sizeKb = (capture.frame.buffer.byteLength / 1024).toFixed(1);
@@ -762,6 +848,7 @@ async function main(): Promise<void> {
     const captures = engine.processEvent(event);
     for (const capture of captures) {
       logCapture(capture);
+      sink.enqueue(capture);
     }
   };
 
@@ -854,11 +941,15 @@ async function main(): Promise<void> {
   const teardown = async () => {
     if (isExiting) return;
     isExiting = true;
-    console.log('\nStopping...');
+    console.log('\nStopping and finalizing session...');
     dispatch({ type: 'stop' });
     await client.send('Page.stopScreencast').catch(() => {});
     await client.detach().catch(() => {});
+    await sink.drain();
     await browser.close().catch(() => {});
+    console.log(`\nSession saved:`);
+    console.log(`  Screenshots: ${sessionDir}`);
+    console.log(`  NDJSON Log:  ${ndjsonPath}`);
     console.log('Done.');
     process.exit(0);
   };

@@ -2,8 +2,14 @@
   "name": "chromium-watch",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "src/index.ts",
   "scripts": {
+    "start": "tsx src/index.ts",
+    "record": "tsx src/index.ts",
+    "stream:compositor": "tsx src/streams/compositor.ts",
+    "stream:lifecycle": "tsx src/streams/lifecycle.ts",
+    "stream:interaction": "tsx src/streams/interaction.ts",
+    "stream:fused": "tsx src/streams/fused.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -12,5 +18,8 @@
   "dependencies": {
     "playwright": "^1.63.0",
     "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13"
   }
 }

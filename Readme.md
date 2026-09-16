@@ -9,3 +9,15 @@ node --experimental-transform-types stream-watch.ts https://my.fu-berlin.de/
 ```bash
 npx tsx compositor-stream.ts https://my.fu-berlin.de/
 ```
+
+### lifecycle-stream
+
+```bash
+npx tsx lifecycle-stream.ts https://my.fu-berlin.de/
+```
+
+### fused-stream (Interaction & Milestone Detection)
+
+```bash
+npx tsx fused-stream.ts https://my.fu-berlin.de/
+```

@@ -7,6 +7,8 @@ export const LifecycleMilestonesRule: MilestoneRule<{
   domSaved: boolean;
   captureLoadOnNext: boolean;
   loadSaved: boolean;
+  captureNetworkAlmostIdleOnNext: boolean;
+  networkAlmostIdleSaved: boolean;
 }> = {
   id: 'lifecycle-milestones',
   init: () => ({
@@ -14,6 +16,8 @@ export const LifecycleMilestonesRule: MilestoneRule<{
     domSaved: false,
     captureLoadOnNext: false,
     loadSaved: false,
+    captureNetworkAlmostIdleOnNext: false,
+    networkAlmostIdleSaved: false
   }),
   evaluate: (state, event, { currentDocument, currentFrame }) => {
     // 1. Arm on lifecycle notifications
@@ -28,12 +32,18 @@ export const LifecycleMilestonesRule: MilestoneRule<{
           captures: [],
         };
       }
-      if (event.name === 'load') {
+      // if (event.name === 'load') {
+      //   return {
+      //     nextState: { ...state, captureLoadOnNext: !state.loadSaved },
+      //     captures: [],
+      //   };
+      // }
+      if (event.name === 'networkAlmostIdle') {
         return {
-          nextState: { ...state, captureLoadOnNext: !state.loadSaved },
+          nextState: { ...state, captureNetworkAlmostIdleOnNext: !state.networkAlmostIdleSaved },
           captures: [],
         };
-      }
+      }      
     }
 
     // 2. Fire on subsequent compositor frames
@@ -53,16 +63,28 @@ export const LifecycleMilestonesRule: MilestoneRule<{
         nextState = { ...nextState, domSaved: true, captureDomOnNext: false };
       }
 
-      if (state.captureLoadOnNext && !state.loadSaved) {
+      // if (state.captureLoadOnNext && !state.loadSaved) {
+      //   captures.push({
+      //     documentId: currentDocument.id,
+      //     loaderId: currentDocument.loaderId,
+      //     url: currentDocument.url,
+      //     label: '02-load',
+      //     frame: currentFrame,
+      //     detail: 'Compositor frame following page load',
+      //   });
+      //   nextState = { ...nextState, loadSaved: true, captureLoadOnNext: false };
+      // }
+
+      if (state.captureNetworkAlmostIdleOnNext && !state.networkAlmostIdleSaved) {
         captures.push({
           documentId: currentDocument.id,
           loaderId: currentDocument.loaderId,
           url: currentDocument.url,
-          label: '02-load',
+          label: '02-settled',
           frame: currentFrame,
-          detail: 'Compositor frame following page load',
+          detail: 'Compositor frame following networkAlmostIdle',
         });
-        nextState = { ...nextState, loadSaved: true, captureLoadOnNext: false };
+        nextState = { ...nextState, networkAlmostIdleSaved: true, captureNetworkAlmostIdleOnNext: false };
       }
 
       return { nextState, captures };

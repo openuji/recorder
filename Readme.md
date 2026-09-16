@@ -21,3 +21,9 @@ npx tsx lifecycle-stream.ts https://my.fu-berlin.de/
 ```bash
 npx tsx fused-stream.ts https://my.fu-berlin.de/
 ```
+
+### modular-stream (Pluggable Rules + In-Page DOM Interaction Probe)
+
+```bash
+npx tsx modular-stream.ts https://my.fu-berlin.de/
+```

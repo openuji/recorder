@@ -1,0 +1,23 @@
+{
+  "name": "@uxr/rules-interaction",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "User-interaction milestone rules: repeating numbered episodes carrying DOM target metadata.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@uxr/core": "workspace:*",
+    "@uxr/engine": "workspace:*"
+  }
+}

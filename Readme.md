@@ -1,81 +1,119 @@
 # Chromium Watch (UXR Interaction & Visual Stream Capture)
 
-A modular, immutable event-driven engine for capturing Chrome visual screencast frames, navigation lifecycle milestones, and user DOM interactions (clicks, scrolling) along with element metadata into an NDJSON log and PNG screenshots.
+Captures what a user actually saw and did: Chrome compositor frames, navigation
+lifecycle milestones, and in-page DOM interactions — fused into one ordered
+event stream, reduced by a pure rules engine into PNG screenshots and an NDJSON
+log.
 
 ---
 
-## Quick Start (Complete Recording Mode)
-
-Runs the full session: captures clicks (pre/post), scrolls (pre/post per episode), navigation milestones, writes PNG screenshots, and appends an `interactions.ndjson` log to `recordings/session-<timestamp>/`.
+## Quick Start
 
 ```bash
-# Using npm script
-npm start https://my.fu-berlin.de/
-
-# Or directly with tsx
-npx tsx src/index.ts https://my.fu-berlin.de/
+pnpm install
+pnpm start https://my.fu-berlin.de/
 ```
 
-### Generated Session Artifacts
-Each session outputs to `recordings/session-<timestamp>/`:
-* `interactions.ndjson`: Newline Delimited JSON log referencing screenshots and DOM element attributes.
-* `nav-00001-00-first.png`: First compositor paint of the document.
-* `nav-00001-01-domcontentloaded.png`: Compositor frame following DOMContentLoaded.
-* `nav-00001-02-load.png`: Compositor frame following page load.
-* `nav-00001-03-pre-scroll-01.png`: Resting frame before scroll episode 1 begins.
-* `nav-00001-04-post-scroll-01.png`: Settled frame after scroll episode 1 ends.
-* `nav-00001-10-pre-click-01.png`: Visual state immediately before click execution (+ target DOM info).
-* `nav-00001-11-post-click-01.png`: Resulting compositor frame following click (+ target DOM info).
-* `nav-00001-99-before-navigation.png`: Final visible frame before navigating away or ending session.
+Interact with the page, then press Ctrl+C. Artifacts land in
+`recordings/session-<timestamp>/`.
+
+| Artifact | Meaning |
+| --- | --- |
+| `interactions.ndjson` | One record per capture: screenshot path, scroll offset, DOM target |
+| `nav-00001-00-first.png` | First compositor paint of the document |
+| `nav-00001-01-domcontentloaded.png` | Frame following `DOMContentLoaded` |
+| `nav-00001-02-settled.png` | Frame following `networkAlmostIdle` |
+| `nav-00001-03-pre-scroll-01.png` | Resting frame before scroll episode 1 |
+| `nav-00001-04-post-scroll-01.png` | Settled frame after scroll episode 1 |
+| `nav-00001-10-pre-click-01.png` | Visual state immediately before click 1 (+ DOM target) |
+| `nav-00001-11-post-click-01.png` | Compositor response to click 1 (+ DOM target) |
+| `nav-00001-99-before-navigation.png` | Final visible frame before navigating away or ending |
+
+Set `UXR_HEADLESS=1` to run without a visible browser window.
 
 ---
 
-## Standalone Stream Debug Run Modes
-
-You can run each stream independently in isolation with real-time terminal output:
-
-### 1. Compositor Stream (Visual Frame Metrics)
-Streams screencast frames from CDP with instant ACK. Logs frame index, latency, scroll offset, and viewport metrics.
-```bash
-npm run stream:compositor https://my.fu-berlin.de/
-# Or: npx tsx src/streams/compositor.ts https://my.fu-berlin.de/
-```
-
-### 2. Lifecycle Stream (Navigation & Paint Milestones)
-Streams CDP navigation commits, `loaderId` tracking, monotonic timestamps, `firstPaint`, `DOMContentLoaded`, and `load`.
-```bash
-npm run stream:lifecycle https://my.fu-berlin.de/
-# Or: npx tsx src/streams/lifecycle.ts https://my.fu-berlin.de/
-```
-
-### 3. Interaction Stream (In-Page DOM Probe)
-Injects an in-page probe via `Runtime.addBinding` (`__uxr_interaction__`). Logs real-time clicks, target selectors, text snippets, and bounding rects.
-```bash
-npm run stream:interaction https://my.fu-berlin.de/
-# Or: npx tsx src/streams/interaction.ts https://my.fu-berlin.de/
-```
-
-### 4. Fused Stream (Detection Engine without Disk Writes)
-Combines all 3 streams through the pure rules engine and prints live detected milestones in the console without saving any files to disk.
-```bash
-npm run stream:fused https://my.fu-berlin.de/
-# Or: npx tsx src/streams/fused.ts https://my.fu-berlin.de/
-```
-
----
-
-## Architecture Overview
+## Architecture
 
 ```
 [ 1. Compositor Stream ] ──┐
-[ 2. Lifecycle Stream  ] ──┼──► [ Fused Domain Stream ] ──► [ Modular Rules Engine ] ──► [ Persistence Sink ]
-[ 3. Interaction Stream] ──┘         (multiplexer)             (Pure State Reducer)       (NDJSON + PNG queue)
+[ 2. Lifecycle Stream  ] ──┼──► [ Fused Stream ] ──► [ Rules Engine ] ──► [ Sinks ]
+[ 3. Interaction Stream] ──┘      (one FIFO)         (pure reducer)     (console,
+         (CDP)                                                        persistence)
 ```
 
-* **`src/types.ts`**: Core domain types (`CompositorFrame`, `LifecycleEvent`, `TargetElementMeta`, `DomainEvent`, `MilestoneCapture`).
-* **`src/streams/`**: Independent, pull-based `AsyncIterable` stream adapters.
-* **`src/rules/`**: Pluggable milestone rule strategy modules (`FirstFrameRule`, `LifecycleMilestonesRule`, `ScrollLifecycleRule`, `PreClickRule`, `PostClickRule`, `BeforeNavigationRule`).
-* **`src/engine/rules-engine.ts`**: Pure reducer state machine.
-* **`src/sink/persistence-sink.ts`**: Non-blocking serialized disk writer.
-* **`src/app.ts`**: `StreamWatchSession` orchestrator.
-* **`src/index.ts`**: Library export root and CLI runner.
+The app exists to bring **three independent asynchronous streams** together.
+Four properties make that work, and changes must preserve them:
+
+1. **One FIFO queue.** All three stream consumers push into a single queue, so
+   the order events reach the engine is the order they arrived from Chromium.
+   That ordering *is* the fusion — no per-stream buffering, priority or
+   round-robin merging.
+2. **"Next frame after X" is load-bearing.** A lifecycle notification says a
+   milestone was reached but not what the user can see; the pixels arrive on a
+   later frame. Rules arm on a signal and capture the following frame.
+3. **`lastFrame` advances after rules run.** That gap is what lets one rule
+   capture the resting frame *before* an event while another captures the frame
+   *after* it.
+4. **One shared CDP session.** The orchestrator owns it; each stream detaches
+   only a session it created itself.
+
+---
+
+## Packages
+
+| Package | Role |
+| --- | --- |
+| `@uxr/core` | Domain types, the `createPushStream` push-to-pull primitive, the `CaptureSink` contract, CDP session ownership. Zero deps, isomorphic. |
+| `@uxr/client-probe` | The in-page DOM probe. Typechecked TS bundled by esbuild into an injectable IIFE source string. |
+| `@uxr/stream-compositor` | CDP screencast frames. |
+| `@uxr/stream-lifecycle` | CDP navigation commits and paint milestones. |
+| `@uxr/stream-interaction` | Installs the probe, decodes its binding callbacks. |
+| `@uxr/fused` | Orchestrator: one CDP session, three streams, one ordered `DomainEvent` stream. |
+| `@uxr/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper. |
+| `@uxr/rules-document` | One-shot, `loaderId`-scoped rules, re-initialized per document. |
+| `@uxr/rules-interaction` | Repeating numbered episodes carrying DOM target metadata. |
+| `@uxr/sinks` | Optional capture destinations: console and PNG + NDJSON persistence. |
+| `@uxr/cli-kit` | Shared browser launch and shutdown scaffolding for the CLIs. |
+| `@uxr/recorder` | The end-to-end session and its CLI. |
+
+### Two kinds of rule
+
+They share one interface and nothing else, which is why they are separate
+packages:
+
+- **Document rules** fire at most once per document, are scoped to a `loaderId`,
+  and are re-initialized whenever a new main-frame document commits. Adding or
+  removing a milestone is an entry in an array — see `lifecycleMilestoneRule`.
+- **Interaction rules** repeat within a document, number each episode, and tag
+  every capture with what the user touched. `scrollLifecycleRule` is a signal
+  processor over frame deltas, with tunable thresholds.
+
+---
+
+## Development
+
+```bash
+pnpm build       # bundle the probe, then tsc --build across all projects
+pnpm typecheck   # everything, browser tier and tests included
+pnpm test        # vitest; runs against sources, no build needed
+```
+
+Each stream is independently runnable — that is the point of the split:
+
+```bash
+pnpm dev:compositor  https://my.fu-berlin.de/   # frame index, latency, scroll offset
+pnpm dev:lifecycle   https://my.fu-berlin.de/   # commits, loaderIds, milestones
+pnpm dev:interaction https://my.fu-berlin.de/   # clicks and scrollend with DOM metadata
+pnpm dev:fused       https://my.fu-berlin.de/   # full detection pipeline, zero disk I/O
+```
+
+### Backpressure
+
+Every queue is unbounded by default, matching capture-exact behavior. The
+compositor pushes full PNG buffers at up to 60fps, so a stalled consumer grows
+memory without limit; pass `maxPendingFrames` to `createCompositorStream` or
+`maxPendingEvents` to `createFusedStream` for a ceiling. Only compositor frames
+are ever evicted — lifecycle and interaction events are the signals rules arm
+on. Drops are counted in `stats.dropped` and reported at the end of a session
+rather than passing silently.

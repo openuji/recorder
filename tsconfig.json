@@ -1,0 +1,16 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/client/probe" },
+    { "path": "./packages/engine" },
+    { "path": "./packages/rules-document" },
+    { "path": "./packages/rules-interaction" },
+    { "path": "./packages/stream-compositor" },
+    { "path": "./packages/stream-lifecycle" },
+    { "path": "./packages/stream-interaction" },
+    { "path": "./packages/fused" },
+    { "path": "./packages/sinks" },
+    { "path": "./apps/recorder" }
+  ]
+}

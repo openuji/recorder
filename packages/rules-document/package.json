@@ -1,0 +1,23 @@
+{
+  "name": "@uxr/rules-document",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Document-lifecycle milestone rules: one-shot, loaderId-scoped, re-initialized per document.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@uxr/core": "workspace:*",
+    "@uxr/engine": "workspace:*"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@uxr/stream-interaction",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "In-page DOM interaction stream — one of the three fused event sources.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "uxr-stream-interaction": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc --build",
+    "dev": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@uxr/cli-kit": "workspace:*",
+    "@uxr/client-probe": "workspace:*",
+    "@uxr/core": "workspace:*",
+    "playwright": "^1.63.0"
+  }
+}

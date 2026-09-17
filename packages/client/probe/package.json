@@ -1,0 +1,26 @@
+{
+  "name": "@uxr/client-probe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "In-page DOM interaction probe. Authored as typechecked TS, shipped as an injectable IIFE source string.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build:source": "node build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.browser.json"
+  },
+  "dependencies": {
+    "@uxr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
+  }
+}

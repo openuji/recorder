@@ -1,0 +1,9 @@
+packages:
+  - 'packages/*'
+  - 'packages/client/*'
+  - 'apps/*'
+
+# esbuild's postinstall fetches its platform-native binary; the client tier
+# bundles through it.
+allowBuilds:
+  esbuild: true

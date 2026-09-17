@@ -1,25 +1,32 @@
 {
   "name": "chromium-watch",
   "version": "1.0.0",
-  "description": "",
-  "main": "src/index.ts",
+  "private": true,
+  "type": "module",
+  "description": "UXR interaction & visual stream capture \u2014 three fused CDP event streams",
+  "packageManager": "pnpm@11.19.0",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "record": "tsx src/index.ts",
-    "stream:compositor": "tsx src/streams/compositor.ts",
-    "stream:lifecycle": "tsx src/streams/lifecycle.ts",
-    "stream:interaction": "tsx src/streams/interaction.ts",
-    "stream:fused": "tsx src/streams/fused.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build:probe": "pnpm --filter @uxr/client-probe run build:source",
+    "build": "pnpm run build:probe && tsc --build",
+    "typecheck": "pnpm run build && pnpm -r run typecheck && tsc --noEmit -p tsconfig.test.json",
+    "clean": "tsc --build --clean",
+    "rebuild": "pnpm run clean && pnpm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "pnpm run build && node apps/recorder/dist/cli.js",
+    "dev:compositor": "pnpm run build && node packages/stream-compositor/dist/cli.js",
+    "dev:lifecycle": "pnpm run build && node packages/stream-lifecycle/dist/cli.js",
+    "dev:interaction": "pnpm run build && node packages/stream-interaction/dist/cli.js",
+    "dev:fused": "pnpm run build && node packages/fused/dist/cli.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "playwright": "^1.63.0",
-    "sharp": "^0.35.4"
-  },
   "devDependencies": {
-    "tsx": "^4.23.13"
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.23.13",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

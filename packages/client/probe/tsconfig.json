@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*.ts"],
+  // The browser tier is bundled by esbuild and typechecked separately against
+  // the DOM lib (tsconfig.browser.json).
+  "exclude": ["src/browser/**"],
+  "references": [{ "path": "../../core" }]
+}

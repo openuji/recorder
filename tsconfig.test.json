@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node", "vitest/globals"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "verbatimModuleSyntax": false,
+    "paths": {
+      "@uxr/core": ["./packages/core/src/index.ts"],
+      "@uxr/engine": ["./packages/engine/src/index.ts"],
+      "@uxr/rules-document": ["./packages/rules-document/src/index.ts"],
+      "@uxr/rules-interaction": ["./packages/rules-interaction/src/index.ts"],
+      "@uxr/sinks": ["./packages/sinks/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/test/**/*.ts", "apps/**/test/**/*.ts", "vitest.config.ts"]
+}

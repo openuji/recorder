@@ -1,5 +1,5 @@
 {
-  "name": "@uxr/rules-document",
+  "name": "@openuji/rules-document",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@uxr/core": "workspace:*",
-    "@uxr/engine": "workspace:*"
+    "@openuji/core": "workspace:*",
+    "@openuji/engine": "workspace:*"
   }
 }

@@ -4,7 +4,7 @@ import {
   ownSession,
   type LifecycleEvent,
   type PushStreamStats,
-} from '@uxr/core';
+} from '@openuji/core';
 
 export interface LifecycleStreamHandle {
   events: AsyncIterable<LifecycleEvent>;

@@ -1,5 +1,5 @@
 {
-  "name": "@uxr/client-probe",
+  "name": "@openuji/client-probe",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.browser.json"
   },
   "dependencies": {
-    "@uxr/core": "workspace:*"
+    "@openuji/core": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.24.2"

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { DomainEvent, MilestoneCapture } from '@uxr/core';
+import type { DomainEvent, MilestoneCapture } from '@openuji/core';
 import {
   RulesEngine,
   initialEngineState,
   reduce,
   unchanged,
   type MilestoneRule,
-} from '@uxr/engine';
-import { defaultDocumentRules } from '@uxr/rules-document';
+} from '@openuji/engine';
+import { defaultDocumentRules } from '@openuji/rules-document';
 import { committed, frameEvent, lifecycle } from './helpers.js';
 
 /** Records every event it is shown, so we can assert on engine dispatch. */

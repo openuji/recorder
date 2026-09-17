@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { runMain, runStreamCli } from '@uxr/cli-kit';
-import { RulesEngine } from '@uxr/engine';
-import { ConsoleSink } from '@uxr/sinks';
+import { runMain, runStreamCli } from '@openuji/cli-kit';
+import { RulesEngine } from '@openuji/engine';
+import { ConsoleSink } from '@openuji/sinks';
 import { createFusedStream } from './index.js';
 import { defaultRules } from './default-rules.js';
 

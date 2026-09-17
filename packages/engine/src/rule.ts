@@ -3,7 +3,7 @@ import type {
   DocumentState,
   DomainEvent,
   MilestoneCapture,
-} from '@uxr/core';
+} from '@openuji/core';
 
 export interface RuleContext {
   readonly currentDocument: DocumentState;

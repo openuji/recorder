@@ -14,7 +14,7 @@ import type {
   InteractionAction,
   InteractionWirePayload,
   TargetElementMeta,
-} from '@uxr/core/wire';
+} from '@openuji/core/wire';
 import {
   MAX_SELECTOR_CLASSES,
   MAX_TEXT_SNIPPET_LENGTH,

@@ -2,7 +2,7 @@ import type {
   DocumentState,
   DomainEvent,
   MilestoneCapture,
-} from '@uxr/core';
+} from '@openuji/core';
 import type { MilestoneRule, RuleContext } from './rule.js';
 
 export type EngineState = Readonly<{

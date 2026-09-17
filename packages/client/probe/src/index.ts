@@ -19,4 +19,4 @@ export type {
   InteractionAction,
   InteractionWirePayload,
   TargetElementMeta,
-} from '@uxr/core/wire';
+} from '@openuji/core/wire';

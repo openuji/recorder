@@ -4,7 +4,7 @@ import {
   ownSession,
   type CompositorFrame,
   type PushStreamStats,
-} from '@uxr/core';
+} from '@openuji/core';
 
 export interface CompositorStreamOptions {
   format?: 'png' | 'jpeg';

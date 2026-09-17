@@ -1,4 +1,4 @@
-import type { DomainEvent, MilestoneCapture } from '@uxr/core';
+import type { DomainEvent, MilestoneCapture } from '@openuji/core';
 import type { MilestoneRule } from './rule.js';
 import { initialEngineState, reduce, type EngineState } from './reduce.js';
 

@@ -26,25 +26,25 @@ importers:
 
   apps/recorder:
     dependencies:
-      '@uxr/cli-kit':
+      '@openuji/cli-kit':
         specifier: workspace:*
         version: link:../../packages/cli-kit
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@uxr/engine':
+      '@openuji/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@uxr/fused':
+      '@openuji/fused':
         specifier: workspace:*
         version: link:../../packages/fused
-      '@uxr/rules-document':
+      '@openuji/rules-document':
         specifier: workspace:*
         version: link:../../packages/rules-document
-      '@uxr/rules-interaction':
+      '@openuji/rules-interaction':
         specifier: workspace:*
         version: link:../../packages/rules-interaction
-      '@uxr/sinks':
+      '@openuji/sinks':
         specifier: workspace:*
         version: link:../../packages/sinks
       playwright:
@@ -59,7 +59,7 @@ importers:
 
   packages/client/probe:
     dependencies:
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../../core
     devDependencies:
@@ -71,37 +71,37 @@ importers:
 
   packages/engine:
     dependencies:
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
 
   packages/fused:
     dependencies:
-      '@uxr/cli-kit':
+      '@openuji/cli-kit':
         specifier: workspace:*
         version: link:../cli-kit
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
-      '@uxr/engine':
+      '@openuji/engine':
         specifier: workspace:*
         version: link:../engine
-      '@uxr/rules-document':
+      '@openuji/rules-document':
         specifier: workspace:*
         version: link:../rules-document
-      '@uxr/rules-interaction':
+      '@openuji/rules-interaction':
         specifier: workspace:*
         version: link:../rules-interaction
-      '@uxr/sinks':
+      '@openuji/sinks':
         specifier: workspace:*
         version: link:../sinks
-      '@uxr/stream-compositor':
+      '@openuji/stream-compositor':
         specifier: workspace:*
         version: link:../stream-compositor
-      '@uxr/stream-interaction':
+      '@openuji/stream-interaction':
         specifier: workspace:*
         version: link:../stream-interaction
-      '@uxr/stream-lifecycle':
+      '@openuji/stream-lifecycle':
         specifier: workspace:*
         version: link:../stream-lifecycle
       playwright:
@@ -110,34 +110,34 @@ importers:
 
   packages/rules-document:
     dependencies:
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
-      '@uxr/engine':
+      '@openuji/engine':
         specifier: workspace:*
         version: link:../engine
 
   packages/rules-interaction:
     dependencies:
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
-      '@uxr/engine':
+      '@openuji/engine':
         specifier: workspace:*
         version: link:../engine
 
   packages/sinks:
     dependencies:
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
 
   packages/stream-compositor:
     dependencies:
-      '@uxr/cli-kit':
+      '@openuji/cli-kit':
         specifier: workspace:*
         version: link:../cli-kit
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
       playwright:
@@ -146,13 +146,13 @@ importers:
 
   packages/stream-interaction:
     dependencies:
-      '@uxr/cli-kit':
+      '@openuji/cli-kit':
         specifier: workspace:*
         version: link:../cli-kit
-      '@uxr/client-probe':
+      '@openuji/client-probe':
         specifier: workspace:*
         version: link:../client/probe
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
       playwright:
@@ -161,10 +161,10 @@ importers:
 
   packages/stream-lifecycle:
     dependencies:
-      '@uxr/cli-kit':
+      '@openuji/cli-kit':
         specifier: workspace:*
         version: link:../cli-kit
-      '@uxr/core':
+      '@openuji/core':
         specifier: workspace:*
         version: link:../core
       playwright:

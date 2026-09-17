@@ -1,6 +1,6 @@
-import type { MilestoneRule } from '@uxr/engine';
-import { defaultDocumentRules } from '@uxr/rules-document';
-import { defaultInteractionRules } from '@uxr/rules-interaction';
+import type { MilestoneRule } from '@openuji/engine';
+import { defaultDocumentRules } from '@openuji/rules-document';
+import { defaultInteractionRules } from '@openuji/rules-interaction';
 
 /**
  * The standard rule suite: both categories, document rules first.

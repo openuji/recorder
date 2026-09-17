@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runMain, runStreamCli } from '@uxr/cli-kit';
+import { runMain, runStreamCli } from '@openuji/cli-kit';
 import { createCompositorStream } from './index.js';
 
 /** Standalone compositor stream: live frame metrics, no disk writes. */

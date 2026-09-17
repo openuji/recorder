@@ -5,8 +5,8 @@ import {
   type InteractionEvent,
   type InteractionWirePayload,
   type PushStreamStats,
-} from '@uxr/core';
-import { PROBE_BINDING_NAME, PROBE_SOURCE } from '@uxr/client-probe';
+} from '@openuji/core';
+import { PROBE_BINDING_NAME, PROBE_SOURCE } from '@openuji/client-probe';
 
 export interface InteractionStreamHandle {
   events: AsyncIterable<InteractionEvent>;
@@ -17,7 +17,7 @@ export interface InteractionStreamHandle {
 /**
  * Installs the in-page probe and streams the user interactions it reports.
  *
- * The probe (`@uxr/client-probe`) runs in the page and calls back through a CDP
+ * The probe (`@openuji/client-probe`) runs in the page and calls back through a CDP
  * binding; this side owns the binding, the injection, and the decoding. Like
  * the lifecycle stream it never drops — a click is an arming signal a rule is
  * waiting on.
@@ -74,4 +74,4 @@ export async function createInteractionStream(
   return { events: stream.iterable, stop, stats: stream.stats };
 }
 
-export { PROBE_BINDING_NAME, PROBE_SOURCE } from '@uxr/client-probe';
+export { PROBE_BINDING_NAME, PROBE_SOURCE } from '@openuji/client-probe';

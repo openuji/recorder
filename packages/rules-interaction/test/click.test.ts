@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { DomainEvent, MilestoneCapture } from '@uxr/core';
-import { RulesEngine, type MilestoneRule } from '@uxr/engine';
-import { ClickEpisodeRule } from '@uxr/rules-interaction';
+import type { DomainEvent, MilestoneCapture } from '@openuji/core';
+import { RulesEngine, type MilestoneRule } from '@openuji/engine';
+import { ClickEpisodeRule } from '@openuji/rules-interaction';
 import {
   click,
   committed,

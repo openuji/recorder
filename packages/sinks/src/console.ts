@@ -1,4 +1,4 @@
-import type { CaptureSink, MilestoneCapture } from '@uxr/core';
+import type { CaptureSink, MilestoneCapture } from '@openuji/core';
 
 const RESET = '\x1b[0m';
 const MAGENTA = '\x1b[35m';

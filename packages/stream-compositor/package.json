@@ -1,5 +1,5 @@
 {
-  "name": "@uxr/stream-compositor",
+  "name": "@openuji/stream-compositor",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -21,8 +21,8 @@
     "dev": "node dist/cli.js"
   },
   "dependencies": {
-    "@uxr/cli-kit": "workspace:*",
-    "@uxr/core": "workspace:*",
+    "@openuji/cli-kit": "workspace:*",
+    "@openuji/core": "workspace:*",
     "playwright": "^1.63.0"
   }
 }

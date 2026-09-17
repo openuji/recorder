@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { installShutdown, runMain, targetUrlFromArgv } from '@uxr/cli-kit';
+import { installShutdown, runMain, targetUrlFromArgv } from '@openuji/cli-kit';
 import { StreamWatchSession } from './session.js';
 
 runMain(async () => {

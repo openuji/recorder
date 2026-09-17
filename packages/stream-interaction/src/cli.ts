@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runMain, runStreamCli } from '@uxr/cli-kit';
+import { runMain, runStreamCli } from '@openuji/cli-kit';
 import { createInteractionStream } from './index.js';
 
 /** Standalone interaction stream: live DOM inspection of clicks and scrolls. */

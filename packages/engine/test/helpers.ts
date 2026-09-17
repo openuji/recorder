@@ -1,4 +1,4 @@
-import type { CompositorFrame, DomainEvent, TargetElementMeta } from '@uxr/core';
+import type { CompositorFrame, DomainEvent, TargetElementMeta } from '@openuji/core';
 
 let nextFrameIndex = 0;
 

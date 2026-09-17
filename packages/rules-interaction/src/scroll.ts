@@ -1,5 +1,5 @@
-import type { CompositorFrame, DocumentState } from '@uxr/core';
-import { unchanged, type MilestoneRule } from '@uxr/engine';
+import type { CompositorFrame, DocumentState } from '@openuji/core';
+import { unchanged, type MilestoneRule } from '@openuji/engine';
 import { episodeLabel } from './episode.js';
 
 export type ScrollLifecycleState = Readonly<{

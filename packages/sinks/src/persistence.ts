@@ -4,7 +4,7 @@ import type {
   CaptureSink,
   InteractionLogRecord,
   MilestoneCapture,
-} from '@uxr/core';
+} from '@openuji/core';
 
 export interface PersistenceSinkOptions {
   /** Directory PNG screenshots are written into. */

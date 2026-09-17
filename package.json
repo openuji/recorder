@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "description": "UXR interaction & visual stream capture \u2014 three fused CDP event streams",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openuji/recorder.git"
+  },
+  "homepage": "https://github.com/openuji/recorder#readme",
+  "bugs": {
+    "url": "https://github.com/openuji/recorder/issues"
+  },
   "packageManager": "pnpm@11.19.0",
   "scripts": {
-    "build:probe": "pnpm --filter @uxr/client-probe run build:source",
+    "build:probe": "pnpm --filter @openuji/client-probe run build:source",
     "build": "pnpm run build:probe && tsc --build",
     "typecheck": "pnpm run build && pnpm -r run typecheck && tsc --noEmit -p tsconfig.test.json",
     "clean": "tsc --build --clean",

@@ -1,4 +1,4 @@
-import { unchanged, type MilestoneRule } from '@uxr/engine';
+import { unchanged, type MilestoneRule } from '@openuji/engine';
 
 export type LifecycleMilestoneState = Readonly<{
   /** A matching lifecycle notification arrived; capture the next frame. */

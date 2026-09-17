@@ -1,5 +1,5 @@
 {
-  "name": "@uxr/stream-interaction",
+  "name": "@openuji/stream-interaction",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -21,9 +21,9 @@
     "dev": "node dist/cli.js"
   },
   "dependencies": {
-    "@uxr/cli-kit": "workspace:*",
-    "@uxr/client-probe": "workspace:*",
-    "@uxr/core": "workspace:*",
+    "@openuji/cli-kit": "workspace:*",
+    "@openuji/client-probe": "workspace:*",
+    "@openuji/core": "workspace:*",
     "playwright": "^1.63.0"
   }
 }

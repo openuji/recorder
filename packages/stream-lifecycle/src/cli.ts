@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runMain, runStreamCli } from '@uxr/cli-kit';
+import { runMain, runStreamCli } from '@openuji/cli-kit';
 import { createLifecycleStream } from './index.js';
 
 /** Standalone lifecycle stream: live navigation and paint milestones. */

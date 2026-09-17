@@ -64,18 +64,18 @@ Four properties make that work, and changes must preserve them:
 
 | Package | Role |
 | --- | --- |
-| `@uxr/core` | Domain types, the `createPushStream` push-to-pull primitive, the `CaptureSink` contract, CDP session ownership. Zero deps, isomorphic. |
-| `@uxr/client-probe` | The in-page DOM probe. Typechecked TS bundled by esbuild into an injectable IIFE source string. |
-| `@uxr/stream-compositor` | CDP screencast frames. |
-| `@uxr/stream-lifecycle` | CDP navigation commits and paint milestones. |
-| `@uxr/stream-interaction` | Installs the probe, decodes its binding callbacks. |
-| `@uxr/fused` | Orchestrator: one CDP session, three streams, one ordered `DomainEvent` stream. |
-| `@uxr/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper. |
-| `@uxr/rules-document` | One-shot, `loaderId`-scoped rules, re-initialized per document. |
-| `@uxr/rules-interaction` | Repeating numbered episodes carrying DOM target metadata. |
-| `@uxr/sinks` | Optional capture destinations: console and PNG + NDJSON persistence. |
-| `@uxr/cli-kit` | Shared browser launch and shutdown scaffolding for the CLIs. |
-| `@uxr/recorder` | The end-to-end session and its CLI. |
+| `@openuji/core` | Domain types, the `createPushStream` push-to-pull primitive, the `CaptureSink` contract, CDP session ownership. Zero deps, isomorphic. |
+| `@openuji/client-probe` | The in-page DOM probe. Typechecked TS bundled by esbuild into an injectable IIFE source string. |
+| `@openuji/stream-compositor` | CDP screencast frames. |
+| `@openuji/stream-lifecycle` | CDP navigation commits and paint milestones. |
+| `@openuji/stream-interaction` | Installs the probe, decodes its binding callbacks. |
+| `@openuji/fused` | Orchestrator: one CDP session, three streams, one ordered `DomainEvent` stream. |
+| `@openuji/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper. |
+| `@openuji/rules-document` | One-shot, `loaderId`-scoped rules, re-initialized per document. |
+| `@openuji/rules-interaction` | Repeating numbered episodes carrying DOM target metadata. |
+| `@openuji/sinks` | Optional capture destinations: console and PNG + NDJSON persistence. |
+| `@openuji/cli-kit` | Shared browser launch and shutdown scaffolding for the CLIs. |
+| `@openuji/recorder` | The end-to-end session and its CLI. |
 
 ### Two kinds of rule
 

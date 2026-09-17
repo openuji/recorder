@@ -6,11 +6,11 @@ import {
   type BrowserContext,
   type Page,
 } from 'playwright';
-import { headlessFromEnv } from '@uxr/cli-kit';
-import { drainAll, enqueueAll, type CaptureSink } from '@uxr/core';
-import { RulesEngine, type MilestoneRule } from '@uxr/engine';
-import { createFusedStream, defaultRules, type FusedStreamHandle } from '@uxr/fused';
-import { ConsoleSink, PersistenceSink } from '@uxr/sinks';
+import { headlessFromEnv } from '@openuji/cli-kit';
+import { drainAll, enqueueAll, type CaptureSink } from '@openuji/core';
+import { RulesEngine, type MilestoneRule } from '@openuji/engine';
+import { createFusedStream, defaultRules, type FusedStreamHandle } from '@openuji/fused';
+import { ConsoleSink, PersistenceSink } from '@openuji/sinks';
 
 export interface StreamWatchOptions {
   url: string;

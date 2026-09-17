@@ -5,10 +5,10 @@ import {
   type CompositorFrame,
   type DomainEvent,
   type PushStreamStats,
-} from '@uxr/core';
-import { createCompositorStream } from '@uxr/stream-compositor';
-import { createLifecycleStream } from '@uxr/stream-lifecycle';
-import { createInteractionStream } from '@uxr/stream-interaction';
+} from '@openuji/core';
+import { createCompositorStream } from '@openuji/stream-compositor';
+import { createLifecycleStream } from '@openuji/stream-lifecycle';
+import { createInteractionStream } from '@openuji/stream-interaction';
 
 export * from './default-rules.js';
 

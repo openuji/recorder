@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { DomainEvent, MilestoneCapture } from '@uxr/core';
-import { RulesEngine } from '@uxr/engine';
-import { SCROLL_DEFAULTS, scrollLifecycleRule } from '@uxr/rules-interaction';
+import type { DomainEvent, MilestoneCapture } from '@openuji/core';
+import { RulesEngine } from '@openuji/engine';
+import { SCROLL_DEFAULTS, scrollLifecycleRule } from '@openuji/rules-interaction';
 import { committed, frameEvent, scrollEnd } from '../../engine/test/helpers.js';
 
 function run(events: readonly DomainEvent[]): MilestoneCapture[] {

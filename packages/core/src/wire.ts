@@ -1,9 +1,9 @@
 /**
- * The wire contract between the in-page probe (`@uxr/client-probe`, runs in the
- * browser) and the Node-side interaction stream (`@uxr/stream-interaction`).
+ * The wire contract between the in-page probe (`@openuji/client-probe`, runs in the
+ * browser) and the Node-side interaction stream (`@openuji/stream-interaction`).
  *
  * This module must stay free of any Node-only types (no `Buffer`, no `node:*`)
- * so the browser tier can depend on it via the `@uxr/core/wire` subpath without
+ * so the browser tier can depend on it via the `@openuji/core/wire` subpath without
  * pulling `@types/node` into a DOM-only program.
  */
 

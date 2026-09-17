@@ -1,5 +1,5 @@
 {
-  "name": "@uxr/recorder",
+  "name": "@openuji/recorder",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -21,13 +21,13 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "@uxr/cli-kit": "workspace:*",
-    "@uxr/core": "workspace:*",
-    "@uxr/engine": "workspace:*",
-    "@uxr/fused": "workspace:*",
-    "@uxr/rules-document": "workspace:*",
-    "@uxr/rules-interaction": "workspace:*",
-    "@uxr/sinks": "workspace:*",
+    "@openuji/cli-kit": "workspace:*",
+    "@openuji/core": "workspace:*",
+    "@openuji/engine": "workspace:*",
+    "@openuji/fused": "workspace:*",
+    "@openuji/rules-document": "workspace:*",
+    "@openuji/rules-interaction": "workspace:*",
+    "@openuji/sinks": "workspace:*",
     "playwright": "^1.63.0"
   }
 }

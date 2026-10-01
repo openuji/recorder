@@ -1,0 +1,24 @@
+---
+interface Props {
+  id?: string;
+  variant?: "hero" | "section" | "compact";
+  class?: string;
+}
+const { id = "ribbon", variant = "hero", class: className = "" } = Astro.props;
+const heights = { hero: "h-[26rem] md:h-[36rem]", section: "h-[18rem] md:h-[24rem]", compact: "h-[10rem] md:h-[14rem]" };
+const gradientId = `journey-gradient-${id}`;
+---
+<div class:list={["pointer-events-none absolute inset-x-0 overflow-hidden", heights[variant], className]} aria-hidden="true">
+  <svg class="h-full w-full" viewBox="0 0 1200 420" preserveAspectRatio="none" focusable="false">
+    <defs>
+      <linearGradient id={gradientId} x1="0%" y1="25%" x2="100%" y2="75%">
+        <stop offset="0%" stop-color="var(--journey-1)" />
+        <stop offset="22%" stop-color="var(--journey-2)" />
+        <stop offset="47%" stop-color="var(--journey-3)" />
+        <stop offset="70%" stop-color="var(--journey-4)" />
+        <stop offset="100%" stop-color="var(--journey-5)" />
+      </linearGradient>
+    </defs>
+    <path d="M -90 270 L 155 95 L 360 250 L 655 75 L 835 135 L 1000 340 L 1270 145" fill="none" stroke={`url(#${gradientId})`} stroke-width="76" stroke-linecap="square" stroke-linejoin="miter" opacity="0.98" />
+  </svg>
+</div>

@@ -1,0 +1,12 @@
+---
+interface Props {
+  id?: string;
+  tone?: "canvas" | "surface";
+  tight?: boolean;
+  class?: string;
+}
+const { id, tone = "canvas", tight = false, class: className = "" } = Astro.props;
+---
+<section id={id} class:list={[tight ? "section-space-tight" : "section-space", tone === "surface" ? "bg-surface" : "bg-canvas", className]}>
+  <slot />
+</section>

@@ -1,0 +1,22 @@
+---
+import type { StatementContent } from "../../content/types";
+import Container from "../primitives/Container.astro";
+import Section from "../layout/Section.astro";
+interface Props { id?: string; content: StatementContent; }
+const { id, content } = Astro.props;
+---
+<Section id={id}>
+  <Container size="content">
+    <div class="grid gap-8 md:grid-cols-[0.7fr_1.3fr] md:gap-16">
+      <div>
+        {content.eyebrow && <p class="text-label font-bold uppercase tracking-[0.12em] text-ink-muted">{content.eyebrow}</p>}
+      </div>
+      <div>
+        <h2 class="max-w-[17ch] text-headline font-black tracking-[-0.045em]">{content.title}</h2>
+        <div class="mt-8 grid gap-5">
+          {content.paragraphs.map((paragraph) => <p class="max-w-[62ch] text-body text-ink-muted">{paragraph}</p>)}
+        </div>
+      </div>
+    </div>
+  </Container>
+</Section>

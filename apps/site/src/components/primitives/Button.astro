@@ -1,0 +1,25 @@
+---
+interface Props {
+  href: string;
+  variant?: "primary" | "secondary" | "quiet";
+  size?: "default" | "large";
+  external?: boolean;
+  class?: string;
+}
+const { href, variant = "primary", size = "default", external = false, class: className = "" } = Astro.props;
+const variants = {
+  primary: "border-line-strong bg-ink text-canvas hover:bg-accent-strong hover:border-accent-strong",
+  secondary: "border-line-strong bg-transparent text-ink hover:bg-surface-raised",
+  quiet: "border-transparent bg-transparent text-ink underline underline-offset-4 hover:text-accent-strong",
+};
+const sizes = { default: "min-h-11 px-5 py-3 text-small", large: "min-h-12 px-6 py-3.5 text-body" };
+---
+<a
+  href={href}
+  class:list={["focus-ring inline-flex items-center justify-center rounded-full border font-bold transition-colors", variants[variant], sizes[size], className]}
+  target={external ? "_blank" : undefined}
+  rel={external ? "noreferrer" : undefined}
+>
+  <slot />
+  {external && <span aria-hidden="true" class="ml-2">↗</span>}
+</a>

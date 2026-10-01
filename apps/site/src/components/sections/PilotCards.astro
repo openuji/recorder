@@ -1,0 +1,26 @@
+---
+import type { PilotCard } from "../../content/types";
+import Container from "../primitives/Container.astro";
+import SectionHeading from "../primitives/SectionHeading.astro";
+import Section from "../layout/Section.astro";
+import Pill from "../primitives/Pill.astro";
+interface Props { id?: string; eyebrow?: string; title: string; intro?: string; items: PilotCard[]; }
+const { id, eyebrow, title, intro, items } = Astro.props;
+---
+<Section id={id} tone="surface">
+  <Container>
+    <SectionHeading eyebrow={eyebrow} title={title} intro={intro} />
+    <div class="mt-12 grid gap-5 md:grid-cols-2">
+      {items.map((pilot) => (
+        <a href={pilot.href} class="focus-ring group surface-panel block min-h-64 p-6 transition-transform hover:-translate-y-1 md:p-8">
+          <div class="flex items-start justify-between gap-5">
+            <h3 class="max-w-[16ch] text-title font-black tracking-[-0.03em]">{pilot.title}</h3>
+            {pilot.status && <Pill>{pilot.status}</Pill>}
+          </div>
+          <p class="mt-8 max-w-[52ch] text-body text-ink-muted">{pilot.description}</p>
+          <p class="mt-8 text-small font-bold underline underline-offset-4">View pilot →</p>
+        </a>
+      ))}
+    </div>
+  </Container>
+</Section>

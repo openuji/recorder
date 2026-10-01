@@ -1,0 +1,16 @@
+---
+import type { FooterContent } from "../../content/types";
+import Container from "../primitives/Container.astro";
+interface Props { content: FooterContent; }
+const { content } = Astro.props;
+---
+<footer class="border-t border-line bg-ink text-canvas">
+  <Container>
+    <div class="grid gap-8 py-10 md:grid-cols-[1fr_auto] md:items-end">
+      <p class="max-w-[58ch] text-small">{content.note}</p>
+      <nav aria-label="Footer" class="flex flex-wrap gap-x-5 gap-y-2 text-small font-bold">
+        {content.links.map((item) => <a class="focus-ring underline-offset-4 hover:underline" href={item.href}>{item.label}</a>)}
+      </nav>
+    </div>
+  </Container>
+</footer>

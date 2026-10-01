@@ -1,0 +1,40 @@
+---
+import type { FooterContent, HeaderContent, PageMeta } from "../content/types";
+import SiteShell from "../components/layout/SiteShell.astro";
+import Header from "../components/layout/Header.astro";
+import Footer from "../components/layout/Footer.astro";
+import Container from "../components/primitives/Container.astro";
+import Pill from "../components/primitives/Pill.astro";
+
+interface Props {
+  meta: PageMeta;
+  header: HeaderContent;
+  footer: FooterContent;
+  eyebrow?: string;
+  title: string;
+  intro?: string;
+  status?: string;
+}
+const { meta, header, footer, eyebrow, title, intro, status } = Astro.props;
+---
+<SiteShell meta={meta}>
+  <Header content={header} variant="pilot" />
+  <main id="main-content">
+    <section class="section-space border-b border-line">
+      <Container size="content">
+        <div class="max-w-[56rem]">
+          {eyebrow && <p class="text-label font-bold uppercase tracking-[0.12em] text-ink-muted">{eyebrow}</p>}
+          {status && <div class="mt-4"><Pill>{status}</Pill></div>}
+          <h1 class="mt-5 text-headline font-black tracking-[-0.045em]">{title}</h1>
+          {intro && <p class="mt-6 max-w-[62ch] text-body text-ink-muted">{intro}</p>}
+        </div>
+      </Container>
+    </section>
+    <section class="section-space-tight">
+      <Container size="text">
+        <article class="prose-flow text-body text-ink-muted"><slot /></article>
+      </Container>
+    </section>
+  </main>
+  <Footer content={footer} />
+</SiteShell>

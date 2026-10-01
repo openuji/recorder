@@ -1,0 +1,24 @@
+---
+import type { JourneyExampleContent } from "../../content/types";
+import Container from "../primitives/Container.astro";
+import SectionHeading from "../primitives/SectionHeading.astro";
+import Section from "../layout/Section.astro";
+interface Props { id?: string; content: JourneyExampleContent; }
+const { id, content } = Astro.props;
+---
+<Section id={id}>
+  <Container>
+    <SectionHeading eyebrow={content.eyebrow} title={content.title} intro={content.intro} />
+    <div class="mt-12 overflow-x-auto pb-2">
+      <ol class="flex min-w-max items-stretch">
+        {content.steps.map((step, index) => (
+          <>
+            <li class="surface-panel flex w-56 items-center p-5 text-title font-black tracking-[-0.03em]">{step}</li>
+            {index < content.steps.length - 1 && <li aria-hidden="true" class="flex w-16 items-center justify-center text-3xl font-black">→</li>}
+          </>
+        ))}
+      </ol>
+    </div>
+    {content.note && <p class="mt-7 max-w-[66ch] text-small font-bold text-ink-muted">{content.note}</p>}
+  </Container>
+</Section>

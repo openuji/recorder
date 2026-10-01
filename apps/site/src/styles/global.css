@@ -1,0 +1,71 @@
+@import "tailwindcss";
+@import "./theme.css";
+@import "./utilities.css";
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background: var(--ds-color-canvas);
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: var(--ds-color-canvas);
+    color: var(--ds-color-ink);
+    font-family: var(--ds-font-sans);
+    text-rendering: optimizeLegibility;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: var(--journey-3);
+    color: var(--ds-color-ink);
+  }
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  left: 1rem;
+  top: 1rem;
+  transform: translateY(-200%);
+  border: 2px solid var(--ds-color-line-strong);
+  background: var(--ds-color-surface-raised);
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

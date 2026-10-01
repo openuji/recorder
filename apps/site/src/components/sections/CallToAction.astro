@@ -1,0 +1,22 @@
+---
+import type { CtaContent } from "../../content/types";
+import Button from "../primitives/Button.astro";
+import Container from "../primitives/Container.astro";
+import JourneyRibbon from "../journey/JourneyRibbon.astro";
+interface Props { content: CtaContent; ribbonId: string; }
+const { content, ribbonId } = Astro.props;
+---
+<section class="relative isolate overflow-hidden border-t border-line bg-canvas section-space">
+  <JourneyRibbon id={ribbonId} variant="section" class="bottom-0 opacity-70" />
+  <Container class="relative z-10">
+    <div class="max-w-[66rem]">
+      {content.eyebrow && <p class="text-label font-bold uppercase tracking-[0.12em] text-ink-muted">{content.eyebrow}</p>}
+      <h2 class="mt-4 max-w-[14ch] bg-canvas text-headline font-black tracking-[-0.045em]">{content.title}</h2>
+      <p class="mt-6 max-w-[60ch] bg-canvas text-body text-ink-muted">{content.body}</p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <Button href={content.primary.href} external={content.primary.external} size="large">{content.primary.label}</Button>
+        {content.secondary && <Button href={content.secondary.href} external={content.secondary.external} variant="secondary" size="large">{content.secondary.label}</Button>}
+      </div>
+    </div>
+  </Container>
+</section>

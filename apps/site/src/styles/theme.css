@@ -1,0 +1,73 @@
+:root {
+  color-scheme: light;
+
+  --ds-color-canvas: #f4f1ea;
+  --ds-color-surface: #fffdf7;
+  --ds-color-surface-raised: #ffffff;
+  --ds-color-ink: #15130f;
+  --ds-color-ink-muted: #554f46;
+  --ds-color-line: #928a7e;
+  --ds-color-line-strong: #1e1b16;
+  --ds-color-accent: #ef4a20;
+  --ds-color-accent-strong: #c93413;
+  --ds-color-focus: #005fcc;
+
+  --journey-1: #ff4a00;
+  --journey-2: #ff1f14;
+  --journey-3: #9ce23b;
+  --journey-4: #18c4dd;
+  --journey-5: #5b46d8;
+
+  --ds-font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --ds-space-page: clamp(1rem, 3vw, 2.25rem);
+  --ds-space-section: clamp(4.5rem, 10vw, 8.5rem);
+  --ds-space-section-tight: clamp(2.75rem, 7vw, 5rem);
+  --ds-space-stack: clamp(1.25rem, 2vw, 2rem);
+  --ds-space-inline: clamp(0.75rem, 1.5vw, 1.25rem);
+
+  --ds-container-wide: 86rem;
+  --ds-container-content: 72rem;
+  --ds-measure: 68ch;
+
+  --ds-type-display-size: clamp(3.1rem, 8.5vw, 8.25rem);
+  --ds-type-display-leading: 0.88;
+  --ds-type-headline-size: clamp(2.35rem, 5vw, 5rem);
+  --ds-type-headline-leading: 0.95;
+  --ds-type-title-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  --ds-type-title-leading: 1.08;
+  --ds-type-body-size: clamp(1.05rem, 1.3vw, 1.2rem);
+  --ds-type-body-leading: 1.62;
+  --ds-type-small-size: 0.95rem;
+  --ds-type-small-leading: 1.5;
+  --ds-type-label-size: 0.78rem;
+  --ds-type-label-leading: 1.2;
+}
+
+@theme inline {
+  --color-canvas: var(--ds-color-canvas);
+  --color-surface: var(--ds-color-surface);
+  --color-surface-raised: var(--ds-color-surface-raised);
+  --color-ink: var(--ds-color-ink);
+  --color-ink-muted: var(--ds-color-ink-muted);
+  --color-line: var(--ds-color-line);
+  --color-line-strong: var(--ds-color-line-strong);
+  --color-accent: var(--ds-color-accent);
+  --color-accent-strong: var(--ds-color-accent-strong);
+  --color-focus: var(--ds-color-focus);
+
+  --font-sans: var(--ds-font-sans);
+
+  --text-display: var(--ds-type-display-size);
+  --text-display--line-height: var(--ds-type-display-leading);
+  --text-headline: var(--ds-type-headline-size);
+  --text-headline--line-height: var(--ds-type-headline-leading);
+  --text-title: var(--ds-type-title-size);
+  --text-title--line-height: var(--ds-type-title-leading);
+  --text-body: var(--ds-type-body-size);
+  --text-body--line-height: var(--ds-type-body-leading);
+  --text-small: var(--ds-type-small-size);
+  --text-small--line-height: var(--ds-type-small-leading);
+  --text-label: var(--ds-type-label-size);
+  --text-label--line-height: var(--ds-type-label-leading);
+}

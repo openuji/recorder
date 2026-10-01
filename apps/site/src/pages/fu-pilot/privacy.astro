@@ -1,0 +1,59 @@
+---
+import ArticlePage from "../../templates/ArticlePage.astro";
+import { fuPilotPage } from "../../content/fu-pilot";
+
+const meta = {
+  title: "Privacy notes — FU Digital Journeys",
+  description: "Draft privacy and participation principles for the FU Digital Journeys pilot.",
+};
+---
+<ArticlePage
+  meta={meta}
+  header={fuPilotPage.header}
+  footer={fuPilotPage.footer}
+  eyebrow="FU Digital Journeys"
+  title="Privacy and participant control"
+  intro="The pilot is being built around deliberate recording, review before sharing, and data minimisation."
+  status="Draft protocol"
+>
+  <p>
+    This page describes the intended handling model while the pilot workflow is still being implemented.
+    Before recruitment begins, it should be updated to match the exact Recorder build, storage location,
+    retention period, contact details and consent process used by the pilot.
+  </p>
+
+  <h2>Recording is deliberate</h2>
+  <p>
+    A participant should explicitly start and stop each research session. The project is not intended
+    to passively instrument FU websites or observe students who did not choose to take part.
+  </p>
+
+  <h2>Review comes before contribution</h2>
+  <p>
+    The intended flow separates recording from sharing. Participants should be able to inspect the
+    captured material, remove sensitive or irrelevant parts, and only then decide whether to contribute
+    the session to the pilot.
+  </p>
+
+  <h2>Collect only what the research needs</h2>
+  <p>
+    Browser sessions can contain personal or sensitive information in URLs, page content, forms and
+    screenshots. The implementation should prefer local filtering and redaction where possible and
+    avoid collecting material that is not necessary for journey reconstruction.
+  </p>
+
+  <h2>Volunteers are not a representative sample</h2>
+  <p>
+    Contributed sessions are qualitative examples of experience. The pilot must not present path counts
+    as estimates of how frequently the wider FU student population uses a route.
+  </p>
+
+  <h2>Before the pilot opens</h2>
+  <ul>
+    <li>Document exactly what Recorder captures in the pilot configuration.</li>
+    <li>Document where contributed data is stored and who can access it.</li>
+    <li>Define retention and deletion procedures.</li>
+    <li>Provide participant information and a documented consent process where required.</li>
+    <li>Provide a real project contact and withdrawal route.</li>
+  </ul>
+</ArticlePage>

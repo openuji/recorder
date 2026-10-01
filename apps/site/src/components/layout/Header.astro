@@ -1,0 +1,22 @@
+---
+import type { HeaderContent } from "../../content/types";
+import Container from "../primitives/Container.astro";
+interface Props { content: HeaderContent; variant?: "main" | "pilot"; }
+const { content, variant = "main" } = Astro.props;
+---
+<header class="relative z-30 border-b border-line bg-canvas">
+  <Container>
+    <div class="flex min-h-18 items-center justify-between gap-5 py-4">
+      <div class="flex items-center gap-3">
+        {variant === "pilot" && content.backLabel && <a class="focus-ring text-small font-bold underline-offset-4 hover:underline" href="/">{content.backLabel}</a>}
+        <a class="focus-ring text-title font-black tracking-[-0.035em]" href={content.homeHref ?? "/"}>{content.label}</a>
+      </div>
+      <nav aria-label="Primary" class="hidden items-center gap-2 md:flex">
+        {content.nav.map((item) => <a class="focus-ring rounded-full border border-line px-3 py-1.5 text-label font-bold hover:border-line-strong hover:bg-surface" href={item.href}>{item.label}</a>)}
+      </nav>
+    </div>
+    <nav aria-label="Primary mobile" class="flex gap-2 overflow-x-auto pb-4 md:hidden">
+      {content.nav.map((item) => <a class="focus-ring shrink-0 rounded-full border border-line px-3 py-1.5 text-label font-bold" href={item.href}>{item.label}</a>)}
+    </nav>
+  </Container>
+</header>

@@ -1,0 +1,14 @@
+---
+interface Props {
+  eyebrow?: string;
+  title: string;
+  intro?: string;
+  align?: "left" | "center";
+}
+const { eyebrow, title, intro, align = "left" } = Astro.props;
+---
+<header class:list={["grid stack-gap", align === "center" && "text-center justify-items-center"]}>
+  {eyebrow && <p class="text-label font-bold uppercase tracking-[0.12em] text-ink-muted">{eyebrow}</p>}
+  <h2 class="max-w-[18ch] text-headline font-black tracking-[-0.045em] text-ink">{title}</h2>
+  {intro && <p class="content-measure text-body text-ink-muted">{intro}</p>}
+</header>

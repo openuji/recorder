@@ -1,0 +1,9 @@
+---
+interface Props {
+  size?: "text" | "content" | "wide";
+  class?: string;
+}
+const { size = "wide", class: className = "" } = Astro.props;
+const sizes = { text: "container-text", content: "container-content", wide: "page-container" };
+---
+<div class:list={[sizes[size], className]}><slot /></div>

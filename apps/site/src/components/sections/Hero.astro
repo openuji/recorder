@@ -1,0 +1,36 @@
+---
+import type { HeroContent } from "../../content/types";
+import Button from "../primitives/Button.astro";
+import Container from "../primitives/Container.astro";
+import Pill from "../primitives/Pill.astro";
+import JourneyRibbon from "../journey/JourneyRibbon.astro";
+
+interface Props {
+  content: HeroContent;
+  variant?: "main" | "pilot";
+}
+const { content, variant = "main" } = Astro.props;
+---
+<section class="relative isolate min-h-[78vh] overflow-hidden border-b border-line">
+  <JourneyRibbon id={variant === "pilot" ? "pilot-hero" : "main-hero"} variant="hero" class={variant === "pilot" ? "top-20 opacity-85" : "top-10 opacity-90"} />
+  <Container class="relative z-10">
+    <div class="flex min-h-[78vh] max-w-[74rem] flex-col justify-end py-16 md:py-24">
+      {content.eyebrow && <p class="mb-5 text-label font-bold uppercase tracking-[0.14em]">{content.eyebrow}</p>}
+      <h1 class="max-w-[12ch] text-display font-black tracking-[-0.065em]">{content.title}</h1>
+      <p class="mt-7 max-w-[62ch] bg-canvas py-2 text-body text-ink-muted">{content.intro}</p>
+
+      {content.pills && (
+        <div class="mt-6 flex flex-wrap gap-2">
+          {content.pills.map((pill) => <Pill>{pill}</Pill>)}
+        </div>
+      )}
+
+      {(content.primary || content.secondary) && (
+        <div class="mt-8 flex flex-wrap gap-3">
+          {content.primary && <Button href={content.primary.href} external={content.primary.external} size="large">{content.primary.label}</Button>}
+          {content.secondary && <Button href={content.secondary.href} external={content.secondary.external} variant="secondary" size="large">{content.secondary.label}</Button>}
+        </div>
+      )}
+    </div>
+  </Container>
+</section>

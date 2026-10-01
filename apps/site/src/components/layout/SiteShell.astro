@@ -1,0 +1,27 @@
+---
+import "../../styles/global.css";
+import type { PageMeta } from "../../content/types";
+interface Props { meta: PageMeta; }
+const { meta } = Astro.props;
+const canonical = meta.canonical ?? new URL(Astro.url.pathname, Astro.site).toString();
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#f4f1ea" />
+    <meta name="description" content={meta.description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={meta.title} />
+    <meta property="og:description" content={meta.description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <title>{meta.title}</title>
+  </head>
+  <body>
+    <a class="skip-link focus-ring" href="#main-content">Skip to content</a>
+    <slot />
+  </body>
+</html>

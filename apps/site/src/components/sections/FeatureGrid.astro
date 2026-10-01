@@ -1,0 +1,22 @@
+---
+import type { FeatureItem } from "../../content/types";
+import Container from "../primitives/Container.astro";
+import SectionHeading from "../primitives/SectionHeading.astro";
+import Section from "../layout/Section.astro";
+interface Props { id?: string; eyebrow?: string; title: string; intro?: string; items: FeatureItem[]; }
+const { id, eyebrow, title, intro, items } = Astro.props;
+---
+<Section id={id}>
+  <Container>
+    <SectionHeading eyebrow={eyebrow} title={title} intro={intro} />
+    <div class="mt-14 grid border-l border-t border-line md:grid-cols-2">
+      {items.map((item) => (
+        <article class="min-h-64 border-b border-r border-line p-6 md:p-8">
+          {item.number && <p class="mb-10 text-label font-bold uppercase tracking-[0.12em] text-ink-muted">{item.number}</p>}
+          <h3 class="text-title font-black tracking-[-0.03em]">{item.title}</h3>
+          <p class="mt-4 max-w-[54ch] text-body text-ink-muted">{item.body}</p>
+        </article>
+      ))}
+    </div>
+  </Container>
+</Section>

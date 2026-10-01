@@ -1,0 +1,48 @@
+---
+import ArticlePage from "../../templates/ArticlePage.astro";
+import Button from "../../components/primitives/Button.astro";
+import { fuPilotPage } from "../../content/fu-pilot";
+
+const meta = {
+  title: "Prepare a journey — FU Digital Journeys",
+  description: "Prepare to contribute one voluntary digital journey to the FU Digital Journeys pilot.",
+};
+---
+<ArticlePage
+  meta={meta}
+  header={fuPilotPage.header}
+  footer={fuPilotPage.footer}
+  eyebrow="FU Digital Journeys"
+  title="Bring one real thing you need to do."
+  intro="A useful contribution starts with a genuine purpose, not a scripted task."
+  status="Pilot preparation"
+>
+  <h2>1. Choose a purpose</h2>
+  <p>
+    Pick something you actually need to accomplish: find a course, understand a module, locate a
+    deadline, register for something, or find information or a service.
+  </p>
+
+  <h2>2. Do it normally</h2>
+  <p>
+    Use the web the way you normally would. Search engines, detours, going backwards, external sites,
+    confusion and even giving up are all part of the journey.
+  </p>
+
+  <h2>3. Add a little context</h2>
+  <p>
+    The most important description is short: what were you trying to achieve? Afterward you can also
+    note anything that felt confusing, surprising or particularly useful.
+  </p>
+
+  <h2>4. Review before sharing</h2>
+  <p>
+    Recording and contribution are separate decisions. The participant flow will only be opened once
+    the review, removal and privacy steps are connected to the pilot configuration.
+  </p>
+
+  <div class="mt-10 flex flex-wrap gap-3">
+    <Button href="/fu-pilot/" size="large">Back to the pilot</Button>
+    <Button href="https://github.com/openuji/recorder" variant="secondary" size="large" external>Inspect Recorder source</Button>
+  </div>
+</ArticlePage>

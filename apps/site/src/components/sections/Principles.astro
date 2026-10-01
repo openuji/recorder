@@ -1,0 +1,21 @@
+---
+import type { PrincipleItem } from "../../content/types";
+import Container from "../primitives/Container.astro";
+import SectionHeading from "../primitives/SectionHeading.astro";
+import Section from "../layout/Section.astro";
+interface Props { eyebrow?: string; title: string; intro?: string; items: PrincipleItem[]; }
+const { eyebrow, title, intro, items } = Astro.props;
+---
+<Section tone="surface">
+  <Container>
+    <SectionHeading eyebrow={eyebrow} title={title} intro={intro} />
+    <div class="mt-14 grid gap-px border border-line bg-line md:grid-cols-2 lg:grid-cols-3">
+      {items.map((item) => (
+        <article class="bg-surface p-6 md:p-8">
+          <h3 class="text-title font-black tracking-[-0.03em]">{item.title}</h3>
+          <p class="mt-4 text-body text-ink-muted">{item.body}</p>
+        </article>
+      ))}
+    </div>
+  </Container>
+</Section>

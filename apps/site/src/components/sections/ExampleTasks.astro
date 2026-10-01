@@ -1,0 +1,17 @@
+---
+import Container from "../primitives/Container.astro";
+import SectionHeading from "../primitives/SectionHeading.astro";
+import Section from "../layout/Section.astro";
+import Pill from "../primitives/Pill.astro";
+interface Props { eyebrow?: string; title: string; intro?: string; items: string[]; note?: string; }
+const { eyebrow, title, intro, items, note } = Astro.props;
+---
+<Section tone="surface">
+  <Container>
+    <SectionHeading eyebrow={eyebrow} title={title} intro={intro} />
+    <div class="mt-10 flex max-w-[64rem] flex-wrap gap-3">
+      {items.map((item) => <Pill class="bg-canvas normal-case tracking-normal">{item}</Pill>)}
+    </div>
+    {note && <p class="mt-8 max-w-[62ch] border-l-4 border-accent pl-5 text-body font-bold">{note}</p>}
+  </Container>
+</Section>

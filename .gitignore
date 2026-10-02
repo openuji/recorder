@@ -9,3 +9,4 @@ dist
 # generated: the bundled in-page probe source (see packages/client/probe/build.mjs)
 packages/client/probe/src/generated
 .claude
+apps/web

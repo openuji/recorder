@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Orchestrator: multiplexes the three independent streams into one ordered domain event stream.",
+  "description": "Orchestrator: fuses the three CDP sources into one ordered domain event stream, and runs it through the rules engine into sinks.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -12,24 +12,18 @@
       "default": "./dist/index.js"
     }
   },
-  "bin": {
-    "uxr-stream-fused": "./dist/cli.js"
-  },
   "files": ["dist"],
   "scripts": {
-    "typecheck": "tsc --build",
-    "dev": "node dist/cli.js"
+    "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@openuji/cli-kit": "workspace:*",
+    "@openuji/cdp": "workspace:*",
     "@openuji/core": "workspace:*",
     "@openuji/engine": "workspace:*",
     "@openuji/rules-document": "workspace:*",
     "@openuji/rules-interaction": "workspace:*",
-    "@openuji/sinks": "workspace:*",
     "@openuji/stream-compositor": "workspace:*",
     "@openuji/stream-interaction": "workspace:*",
-    "@openuji/stream-lifecycle": "workspace:*",
-    "playwright": "^1.63.0"
+    "@openuji/stream-lifecycle": "workspace:*"
   }
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { runMain, runStreamCli } from '@openuji/cli-kit';
-import { createCompositorStream } from './index.js';
+import { base64ByteLength } from '@openuji/core';
+import { createCompositorStream } from '@openuji/stream-compositor';
 
 /** Standalone compositor stream: live frame metrics, no disk writes. */
 runMain(async () => {
@@ -8,15 +9,17 @@ runMain(async () => {
     label: 'standalone compositor stream',
     ready: 'Page loaded. Scroll or interact. Press Ctrl+C to stop.\n',
     waitUntil: 'domcontentloaded',
-    run: async (page) => {
+    run: async (target) => {
       console.log('Starting compositor stream...');
-      const { frames, stop } = await createCompositorStream(page);
+      const { frames, stop } = await createCompositorStream(target.cdp, {
+        viewport: target.viewport,
+      });
 
       const consumed = (async () => {
         const startTime = Date.now();
         for await (const frame of frames) {
           const elapsedMs = (frame.timestamp - startTime).toFixed(0);
-          const sizeKb = (frame.buffer.byteLength / 1024).toFixed(1);
+          const sizeKb = (base64ByteLength(frame.base64) / 1024).toFixed(1);
 
           console.log(
             `[Frame #${String(frame.index).padStart(4, '0')}] ` +

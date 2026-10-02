@@ -1,9 +1,10 @@
 /**
- * Node-facing entry point for the in-page probe.
+ * Host-facing entry point for the in-page probe.
  *
- * `PROBE_SOURCE` is the bundled IIFE text produced by `build.mjs`; inject it
- * with CDP `Page.addScriptToEvaluateOnNewDocument` and install a binding named
- * `PROBE_BINDING_NAME` to receive its payloads.
+ * `PROBE_SOURCE` is the bundled IIFE text produced by `build.mjs` from the CDP
+ * binding entry; inject it with CDP `Page.addScriptToEvaluateOnNewDocument` and
+ * install a binding named `PROBE_BINDING_NAME` to receive its payloads. Any CDP
+ * host can do that — Node, Electron, or an extension through `chrome.debugger`.
  */
 
 export {

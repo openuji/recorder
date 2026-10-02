@@ -6,7 +6,7 @@ const packageDir = dirname(fileURLToPath(import.meta.url));
 
 const { bytes } = await buildClientSource({
   packageDir,
-  entry: 'src/browser/probe.ts',
+  entry: 'src/browser/cdp-binding.ts',
   outBundle: 'dist/probe.iife.js',
   outModule: 'src/generated/probe-source.ts',
   exportName: 'PROBE_SOURCE',

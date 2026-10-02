@@ -1,0 +1,84 @@
+import type { InteractionWirePayload } from '@openuji/core';
+import type { FakeCdpTransport } from '@openuji/cdp/testing';
+
+/**
+ * Scripted Chromium: the CDP events the three sources listen for, with only
+ * the fields they read.
+ */
+
+let nextFrameSession = 0;
+
+export function screencastFrame(
+  cdp: FakeCdpTransport,
+  overrides: { sessionId?: number; scrollY?: number; data?: string } = {},
+): number {
+  const sessionId = overrides.sessionId ?? ++nextFrameSession;
+  cdp.emit('Page.screencastFrame', {
+    data: overrides.data ?? 'cG5n',
+    sessionId,
+    metadata: {
+      offsetTop: 0,
+      pageScaleFactor: 1,
+      deviceWidth: 1280,
+      deviceHeight: 800,
+      scrollOffsetX: 0,
+      scrollOffsetY: overrides.scrollY ?? 0,
+      timestamp: 1_700_000_000,
+    },
+  });
+  return sessionId;
+}
+
+export function frameNavigated(
+  cdp: FakeCdpTransport,
+  loaderId: string,
+  options: { url?: string; frameId?: string; parentId?: string } = {},
+): void {
+  cdp.emit('Page.frameNavigated', {
+    frame: {
+      id: options.frameId ?? 'main',
+      loaderId,
+      url: options.url ?? `https://example.com/${loaderId}`,
+      ...(options.parentId ? { parentId: options.parentId } : {}),
+    },
+    type: 'Navigation',
+  });
+}
+
+export function lifecycleEvent(
+  cdp: FakeCdpTransport,
+  name: string,
+  loaderId: string,
+  frameId = 'main',
+): void {
+  cdp.emit('Page.lifecycleEvent', { frameId, loaderId, name, timestamp: 1 });
+}
+
+export function bindingCalled(
+  cdp: FakeCdpTransport,
+  name: string,
+  payload: string,
+): void {
+  cdp.emit('Runtime.bindingCalled', { name, payload, executionContextId: 1 });
+}
+
+export function clickPayload(selector = 'a.link'): string {
+  const payload: InteractionWirePayload = {
+    action: 'click',
+    target: {
+      tagName: 'a',
+      selector,
+      clientX: 10,
+      clientY: 20,
+      boundingRect: { x: 0, y: 0, width: 100, height: 40 },
+    },
+    timestamp: 1_700_000_000,
+  };
+  return JSON.stringify(payload);
+}
+
+export async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+  const out: T[] = [];
+  for await (const value of iterable) out.push(value);
+  return out;
+}

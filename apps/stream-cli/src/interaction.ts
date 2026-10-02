@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { runMain, runStreamCli } from '@openuji/cli-kit';
-import { createInteractionStream } from './index.js';
+import { createInteractionStream } from '@openuji/stream-interaction';
 
 /** Standalone interaction stream: live DOM inspection of clicks and scrolls. */
 runMain(async () => {
@@ -8,9 +8,9 @@ runMain(async () => {
     label: 'standalone interaction probe',
     ready:
       'Page ready. Click elements or scroll to see live DOM inspection. Press Ctrl+C to stop.\n',
-    run: async (page) => {
+    run: async (target) => {
       console.log('Attaching interaction probe...');
-      const { events, stop } = await createInteractionStream(page);
+      const { events, stop } = await createInteractionStream(target.cdp);
 
       const consumed = (async () => {
         for await (const { action, target } of events) {

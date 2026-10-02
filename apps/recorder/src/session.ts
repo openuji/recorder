@@ -1,15 +1,14 @@
 import { mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import {
-  chromium,
-  type Browser,
-  type BrowserContext,
-  type Page,
-} from 'playwright';
 import { headlessFromEnv } from '@openuji/cli-kit';
-import { drainAll, enqueueAll, type CaptureSink } from '@openuji/core';
-import { RulesEngine, type MilestoneRule } from '@openuji/engine';
-import { createFusedStream, defaultRules, type FusedStreamHandle } from '@openuji/fused';
+import type { CaptureSink } from '@openuji/core';
+import type { MilestoneRule } from '@openuji/engine';
+import { startRecording, type RecordingHandle } from '@openuji/fused';
+import {
+  DEFAULT_VIEWPORT,
+  launchPlaywrightTarget,
+  type PlaywrightTarget,
+} from '@openuji/host-playwright';
 import { ConsoleSink, PersistenceSink } from '@openuji/sinks';
 
 export interface StreamWatchOptions {
@@ -26,29 +25,22 @@ export interface StreamWatchOptions {
   sinks?: readonly CaptureSink[];
 }
 
-const DEFAULT_VIEWPORT = { width: 1280, height: 800 } as const;
-
 /**
- * Orchestrates a full end-to-end capture session: browser, fused streams,
- * rules engine, sinks.
+ * Orchestrates a full end-to-end capture session: a Playwright-launched
+ * browser as the host, and the host-agnostic recording pipeline (fused
+ * streams, rules engine, sinks) running over its CDP transport.
  */
 export class StreamWatchSession {
-  private browser: Browser | null = null;
-  private context: BrowserContext | null = null;
-  private page: Page | null = null;
-  private fused: FusedStreamHandle | null = null;
-  private consumer: Promise<void> | null = null;
+  private target: PlaywrightTarget | null = null;
+  private recording: RecordingHandle | null = null;
   private isStopping = false;
 
-  private readonly engine: RulesEngine;
   private sinks: readonly CaptureSink[] = [];
 
   public sessionDir = '';
   public ndjsonPath = '';
 
-  constructor(private readonly options: StreamWatchOptions) {
-    this.engine = new RulesEngine(options.rules ?? defaultRules);
-  }
+  constructor(private readonly options: StreamWatchOptions) {}
 
   public async start(): Promise<void> {
     const runId = new Date().toISOString().replace(/[:.]/g, '-');
@@ -66,37 +58,20 @@ export class StreamWatchSession {
     ];
 
     console.log('Launching browser session...');
-    this.browser = await chromium.launch({
+    this.target = await launchPlaywrightTarget({
       headless: this.options.headless ?? headlessFromEnv(),
-      // Playwright installs its own SIGINT/SIGTERM handlers that close the browser
-      // and exit the process with code 130. That races our teardown and can cut
-      // the session short before the final capture is flushed, so we take over
-      // signal handling entirely.
-      handleSIGINT: false,
-      handleSIGTERM: false,
-      handleSIGHUP: false,
+      viewport: this.options.viewport ?? DEFAULT_VIEWPORT,
     });
-
-    this.context = await this.browser.newContext({
-      viewport: { ...(this.options.viewport ?? DEFAULT_VIEWPORT) },
-    });
-    this.page = await this.context.newPage();
 
     console.log('Initializing fused stream pipeline...');
-    const fused = await createFusedStream(this.page);
-    this.fused = fused;
-
-    this.consumer = (async () => {
-      for await (const event of fused.events) {
-        if (this.isStopping) break;
-        for (const capture of this.engine.processEvent(event)) {
-          enqueueAll(this.sinks, capture);
-        }
-      }
-    })();
+    this.recording = await startRecording(this.target.cdp, {
+      ...(this.options.rules ? { rules: this.options.rules } : {}),
+      sinks: this.sinks,
+      screencast: { viewport: this.target.viewport },
+    });
 
     console.log(`Navigating to ${this.options.url}...`);
-    await this.page.goto(this.options.url, { waitUntil: 'commit' });
+    await this.target.navigate(this.options.url);
   }
 
   public async stop(): Promise<void> {
@@ -105,28 +80,22 @@ export class StreamWatchSession {
 
     console.log('\nStopping session and finalizing writes...');
 
-    // Flush the final resting state (99-before-navigation) before teardown.
-    for (const capture of this.engine.processEvent({ type: 'stop' })) {
-      enqueueAll(this.sinks, capture);
-    }
-
-    await this.fused?.stop().catch(() => {});
-    await this.consumer?.catch(() => {});
-
+    // Flushes the final resting state (99-before-navigation), stops the
+    // streams, then drains the sinks — all before the browser goes away.
     let drainError: unknown = null;
     try {
-      await drainAll(this.sinks);
+      await this.recording?.stop();
     } catch (err) {
       drainError = err;
     }
 
-    await this.browser?.close().catch(() => {});
+    await this.target?.close();
 
     console.log('\nSession saved:');
     console.log(`  Screenshots: ${this.sessionDir}`);
     console.log(`  NDJSON Log:  ${this.ndjsonPath}`);
 
-    const dropped = this.fused?.stats.dropped ?? 0;
+    const dropped = this.recording?.stats.dropped ?? 0;
     if (dropped > 0) {
       console.warn(
         `  \x1b[33mWarning: ${dropped} compositor frame(s) dropped under backpressure.\x1b[0m`,
@@ -137,17 +106,11 @@ export class StreamWatchSession {
     console.log('Done.');
   }
 
-  /** The live browser, once `start()` has run. Used to hook shutdown. */
-  public get browserHandle(): Browser | null {
-    return this.browser;
-  }
-
-  /** The page being recorded. Lets a caller drive the session programmatically. */
-  public get pageHandle(): Page | null {
-    return this.page;
-  }
-
-  public onDisconnect(handler: () => void): void {
-    this.browser?.on('disconnected', handler);
+  /**
+   * The recorded target, once `start()` has run. Exposes the Playwright
+   * `page` and `browser` for driving the session programmatically.
+   */
+  public get targetHandle(): PlaywrightTarget | null {
+    return this.target;
   }
 }

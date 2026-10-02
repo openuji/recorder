@@ -1,4 +1,8 @@
-import type { CaptureSink, MilestoneCapture } from '@openuji/core';
+import {
+  base64ByteLength,
+  type CaptureSink,
+  type MilestoneCapture,
+} from '@openuji/core';
 
 const RESET = '\x1b[0m';
 const MAGENTA = '\x1b[35m';
@@ -34,7 +38,7 @@ export class ConsoleSink implements CaptureSink {
 
   public enqueue(capture: MilestoneCapture): void {
     const loader = capture.loaderId.slice(0, 8);
-    const sizeKb = (capture.frame.buffer.byteLength / 1024).toFixed(1);
+    const sizeKb = (base64ByteLength(capture.frame.base64) / 1024).toFixed(1);
     const color = colorFor(capture.label);
 
     console.log(

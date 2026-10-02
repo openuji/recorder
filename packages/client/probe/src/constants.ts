@@ -1,11 +1,11 @@
 /**
- * Names shared by the in-page probe and the Node side that installs it.
+ * Names shared by the in-page probe and the host side that installs it.
  *
  * This module is imported by both tiers, so it must stay free of any DOM or
  * Node API — plain constants only.
  */
 
-/** The `Runtime.addBinding` function the probe calls to reach Node. */
+/** The `Runtime.addBinding` function the probe calls to reach the host. */
 export const PROBE_BINDING_NAME = '__uxr_interaction__';
 
 /** Guard flag the probe sets on `window` so a re-injection is a no-op. */

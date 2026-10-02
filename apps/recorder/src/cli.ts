@@ -14,13 +14,13 @@ runMain(async () => {
   console.log(`  • Logs recorded in real time to -> ${session.ndjsonPath}\n`);
 
   await new Promise<void>((resolve, reject) => {
-    const browser = session.browserHandle;
-    if (!browser) {
-      reject(new Error('Session started without a browser'));
+    const target = session.targetHandle;
+    if (!target) {
+      reject(new Error('Session started without a target'));
       return;
     }
 
-    installShutdown(browser, async () => {
+    installShutdown(target, async () => {
       try {
         await session.stop();
         resolve();

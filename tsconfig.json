@@ -2,6 +2,7 @@
   "files": [],
   "references": [
     { "path": "./packages/core" },
+    { "path": "./packages/cdp" },
     { "path": "./packages/client/probe" },
     { "path": "./packages/engine" },
     { "path": "./packages/rules-document" },
@@ -11,6 +12,9 @@
     { "path": "./packages/stream-interaction" },
     { "path": "./packages/fused" },
     { "path": "./packages/sinks" },
+    { "path": "./packages/host-playwright" },
+    { "path": "./packages/cli-kit" },
+    { "path": "./apps/stream-cli" },
     { "path": "./apps/recorder" }
   ]
 }

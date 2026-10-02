@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Runtime-agnostic packages: they must run unchanged in Node, Electron's
+    // main process and an extension service worker. No Node types (so a stray
+    // `Buffer`, `process` or `node:*` import fails here, not at runtime in the
+    // extension), and only the web-platform globals all three share.
+    "lib": ["ES2022", "WebWorker"],
+    "types": []
+  }
+}

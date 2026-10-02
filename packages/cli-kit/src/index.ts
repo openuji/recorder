@@ -1,7 +1,12 @@
-import { chromium, type Browser, type Page } from 'playwright';
+import type { RecordingTarget } from '@openuji/cdp';
+import {
+  DEFAULT_VIEWPORT,
+  launchPlaywrightTarget,
+  type WaitUntil,
+} from '@openuji/host-playwright';
 
 export const DEFAULT_TARGET_URL = 'https://example.com';
-export const DEFAULT_VIEWPORT = { width: 1280, height: 800 } as const;
+export { DEFAULT_VIEWPORT };
 
 /** The URL to record: first positional argument, or a harmless default. */
 export function targetUrlFromArgv(argv: readonly string[] = process.argv): string {
@@ -18,12 +23,10 @@ export function headlessFromEnv(env: NodeJS.ProcessEnv = process.env): boolean {
 }
 
 export interface StreamCliRun {
-  /** Resolves when the consumer loop has drained the stream. */
-  readonly consumed: Promise<void>;
+  /** Resolves when the consumer loop has drained the stream, if there is one. */
+  readonly consumed?: Promise<void>;
   /** Shut the stream(s) down. */
   stop(): Promise<void>;
-  /** Runs before `stop()` — e.g. to flush a final engine capture. */
-  onBeforeStop?(): void | Promise<void>;
 }
 
 export interface StreamCliOptions {
@@ -33,60 +36,51 @@ export interface StreamCliOptions {
   readonly ready: string;
   readonly targetUrl?: string;
   readonly headless?: boolean;
-  readonly waitUntil?: 'commit' | 'domcontentloaded' | 'load' | 'networkidle';
-  /** Wire up the stream and start consuming it. */
-  run(page: Page): Promise<StreamCliRun>;
+  readonly waitUntil?: WaitUntil;
+  /** Wire up the stream against the target's transport and start consuming it. */
+  run(target: RecordingTarget): Promise<StreamCliRun>;
 }
 
 /**
  * Shared harness for the standalone stream runners.
  *
  * Each stream is independently runnable by design — that is the point of the
- * three-stream split — so this exists to keep the five entry points from each
+ * three-stream split — so this exists to keep the entry points from each
  * re-implementing browser launch, navigation and signal handling.
  */
 export async function runStreamCli(options: StreamCliOptions): Promise<void> {
   const targetUrl = options.targetUrl ?? targetUrlFromArgv();
 
   console.log(`Launching browser (${options.label})...`);
-  const browser = await chromium.launch({
+  const target = await launchPlaywrightTarget({
     headless: options.headless ?? headlessFromEnv(),
-    // Playwright installs its own SIGINT/SIGTERM handlers that close the browser
-    // and exit the process with code 130. That races our teardown and can cut
-    // the session short before the final capture is flushed, so we take over
-    // signal handling entirely.
-    handleSIGINT: false,
-    handleSIGTERM: false,
-    handleSIGHUP: false,
+    viewport: DEFAULT_VIEWPORT,
   });
-  const context = await browser.newContext({ viewport: { ...DEFAULT_VIEWPORT } });
-  const page = await context.newPage();
 
-  const session = await options.run(page);
+  const session = await options.run(target);
 
   console.log(`Navigating to ${targetUrl}...`);
-  await page.goto(targetUrl, { waitUntil: options.waitUntil ?? 'commit' });
+  await target.navigate(targetUrl, { waitUntil: options.waitUntil ?? 'commit' });
   console.log(options.ready);
 
   await new Promise<void>((resolve) => {
-    installShutdown(browser, async () => {
-      await session.onBeforeStop?.();
+    installShutdown(target, async () => {
       await session.stop();
-      await session.consumed.catch(() => {});
+      await session.consumed?.catch(() => {});
       resolve();
     });
   });
 
-  await browser.close().catch(() => {});
+  await target.close();
   console.log('Done.');
 }
 
 /**
- * Run `teardown` once, on whichever comes first: Ctrl+C, SIGTERM, or the user
- * closing the browser window.
+ * Run `teardown` once, on whichever comes first: Ctrl+C, SIGTERM, or the
+ * target going away on its own (the user closing the browser window).
  */
 export function installShutdown(
-  browser: Browser,
+  target: RecordingTarget,
   teardown: () => Promise<void>,
 ): void {
   let started = false;
@@ -101,7 +95,7 @@ export function installShutdown(
 
   process.on('SIGINT', once);
   process.on('SIGTERM', once);
-  browser.on('disconnected', once);
+  target.onClosed(once);
 }
 
 /** Wrap a CLI `main` so failures exit non-zero with a readable message. */

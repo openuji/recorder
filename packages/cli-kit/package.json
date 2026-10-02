@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared browser launch and shutdown scaffolding for the standalone stream CLIs.",
+  "description": "Shared launch, navigation and shutdown scaffolding for the Node CLIs, on top of the Playwright host.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -17,6 +17,7 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "playwright": "^1.63.0"
+    "@openuji/cdp": "workspace:*",
+    "@openuji/host-playwright": "workspace:*"
   }
 }

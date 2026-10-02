@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 import { runMain, runStreamCli } from '@openuji/cli-kit';
-import { createLifecycleStream } from './index.js';
+import { createLifecycleStream } from '@openuji/stream-lifecycle';
 
 /** Standalone lifecycle stream: live navigation and paint milestones. */
 runMain(async () => {
   await runStreamCli({
     label: 'standalone lifecycle stream',
     ready: 'Page navigated. Interact with links/forms. Press Ctrl+C to stop.\n',
-    run: async (page) => {
+    run: async (target) => {
       console.log('Starting lifecycle stream...');
-      const { events, stop } = await createLifecycleStream(page);
+      const { events, stop } = await createLifecycleStream(target.cdp);
 
       const consumed = (async () => {
         let baseline: number | null = null;

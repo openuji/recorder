@@ -11,11 +11,19 @@
     "moduleResolution": "Bundler",
     "verbatimModuleSyntax": false,
     "paths": {
+      "@openuji/cdp": ["./packages/cdp/src/index.ts"],
+      "@openuji/cdp/testing": ["./packages/cdp/src/testing.ts"],
+      "@openuji/client-probe": ["./packages/client/probe/src/index.ts"],
       "@openuji/core": ["./packages/core/src/index.ts"],
+      "@openuji/core/wire": ["./packages/core/src/wire.ts"],
       "@openuji/engine": ["./packages/engine/src/index.ts"],
+      "@openuji/fused": ["./packages/fused/src/index.ts"],
       "@openuji/rules-document": ["./packages/rules-document/src/index.ts"],
       "@openuji/rules-interaction": ["./packages/rules-interaction/src/index.ts"],
-      "@openuji/sinks": ["./packages/sinks/src/index.ts"]
+      "@openuji/sinks": ["./packages/sinks/src/index.ts"],
+      "@openuji/stream-compositor": ["./packages/stream-compositor/src/index.ts"],
+      "@openuji/stream-interaction": ["./packages/stream-interaction/src/index.ts"],
+      "@openuji/stream-lifecycle": ["./packages/stream-lifecycle/src/index.ts"]
     }
   },
   "include": ["packages/**/test/**/*.ts", "apps/**/test/**/*.ts", "vitest.config.ts"]

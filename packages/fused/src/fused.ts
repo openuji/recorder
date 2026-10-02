@@ -1,0 +1,134 @@
+import type { CdpTransport, Detach } from '@openuji/cdp';
+import {
+  createPushStream,
+  type CompositorFrame,
+  type DomainEvent,
+  type PushStreamStats,
+} from '@openuji/core';
+import {
+  attachCompositor,
+  type ScreencastOptions,
+} from '@openuji/stream-compositor';
+import { attachLifecycle } from '@openuji/stream-lifecycle';
+import { attachInteraction } from '@openuji/stream-interaction';
+
+export interface FusedStreamOptions {
+  /**
+   * Cap on domain events queued but not yet consumed.
+   *
+   * Only compositor frames are ever evicted — lifecycle and interaction events
+   * are the signals rules arm on, and losing one silently corrupts a recording.
+   * Omit for an unbounded queue (the default).
+   */
+  maxPendingEvents?: number;
+  /** Called for each dropped frame once `maxPendingEvents` is exceeded. */
+  onDropFrame?: (frame: CompositorFrame, totalDropped: number) => void;
+  /** Passed to the compositor source's `Page.startScreencast`. */
+  screencast?: ScreencastOptions;
+}
+
+export interface FusedStreamHandle {
+  events: AsyncIterable<DomainEvent>;
+  stop: () => Promise<void>;
+  readonly stats: PushStreamStats;
+}
+
+/**
+ * Fuses the three independent CDP sources into one ordered domain event stream.
+ *
+ * Two things here are the whole design:
+ *
+ *  1. **One transport.** All three sources attach to the transport the host
+ *     owns, so they share one connection; this function never closes it.
+ *  2. **One FIFO queue, fed synchronously.** Each source emits from inside its
+ *     CDP event handler straight into a single queue. The transport delivers
+ *     events in arrival order and synchronously, so the order events reach the
+ *     engine is exactly the order they arrived from Chromium — by construction.
+ *     That ordering *is* the fusion: rules are written as "capture the next
+ *     compositor frame after this lifecycle notification" and "the resting
+ *     frame before this click". Any per-stream buffering, priority, or
+ *     round-robin merge would silently capture different moments.
+ *
+ * The sources are the same `attach*` functions the standalone streams run, so a
+ * source watched in isolation behaves exactly as it does here.
+ */
+export async function createFusedStream(
+  cdp: CdpTransport,
+  options: FusedStreamOptions = {},
+): Promise<FusedStreamHandle> {
+  const { maxPendingEvents, onDropFrame, screencast } = options;
+
+  const stream = createPushStream<DomainEvent>({
+    ...(maxPendingEvents !== undefined ? { capacity: maxPendingEvents } : {}),
+    evict: (event) => event.type === 'frame',
+    onDrop: (event, total) => {
+      if (event.type === 'frame') onDropFrame?.(event.frame, total);
+    },
+  });
+
+  const attached = await Promise.allSettled([
+    attachCompositor(
+      cdp,
+      (frame) => stream.push({ type: 'frame', frame }),
+      screencast,
+    ),
+
+    attachLifecycle(cdp, (event) =>
+      stream.push(
+        event.type === 'committed'
+          ? {
+              type: 'committed',
+              frameId: event.frameId,
+              isMainFrame: event.isMainFrame,
+              loaderId: event.loaderId,
+              url: event.url,
+              timestamp: event.timestamp,
+            }
+          : {
+              type: 'lifecycle',
+              frameId: event.frameId,
+              loaderId: event.loaderId,
+              name: event.name,
+              timestamp: event.timestamp,
+            },
+      ),
+    ),
+
+    attachInteraction(cdp, (event) =>
+      stream.push({
+        type: 'interaction',
+        action: event.action,
+        target: event.target,
+        timestamp: event.timestamp,
+      }),
+    ),
+  ]);
+
+  const detaches: Detach[] = attached.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  );
+
+  const detachAll = async (): Promise<void> => {
+    await Promise.all(detaches.map((detach) => detach().catch(() => {})));
+  };
+
+  const failure = attached.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+  if (failure) {
+    // Don't leave the sources that did attach listening on a transport nobody
+    // will consume.
+    await detachAll();
+    stream.end();
+    throw failure.reason;
+  }
+
+  const stop = async (): Promise<void> => {
+    if (stream.closed) return;
+
+    await detachAll();
+    stream.end();
+  };
+
+  return { events: stream.iterable, stop, stats: stream.stats };
+}

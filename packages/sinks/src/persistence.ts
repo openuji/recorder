@@ -1,9 +1,10 @@
 import { appendFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type {
-  CaptureSink,
-  InteractionLogRecord,
-  MilestoneCapture,
+import {
+  base64ByteLength,
+  type CaptureSink,
+  type InteractionLogRecord,
+  type MilestoneCapture,
 } from '@openuji/core';
 
 export interface PersistenceSinkOptions {
@@ -56,7 +57,7 @@ export class PersistenceSink implements CaptureSink {
       label: capture.label,
       screenshotFile: filename,
       screenshotPath,
-      byteLength: capture.frame.buffer.byteLength,
+      byteLength: base64ByteLength(capture.frame.base64),
       scroll: {
         x: capture.frame.scrollX,
         y: capture.frame.scrollY,
@@ -69,7 +70,8 @@ export class PersistenceSink implements CaptureSink {
 
     this.writeQueue = this.writeQueue
       .then(async () => {
-        await writeFile(screenshotPath, capture.frame.buffer);
+        // Node decodes base64 natively here; no intermediate copy.
+        await writeFile(screenshotPath, capture.frame.base64, 'base64');
         await appendFile(this.logFile, line, 'utf8');
       })
       .catch((error: unknown) => {

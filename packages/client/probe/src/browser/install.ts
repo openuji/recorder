@@ -1,10 +1,11 @@
 /**
- * In-page DOM interaction probe.
+ * In-page DOM interaction probe — the observation core.
  *
- * Runs inside the recorded page, injected via CDP
- * `Page.addScriptToEvaluateOnNewDocument`. It observes user interactions in the
- * capture phase and hands each one to Node through the
- * `Runtime.addBinding` function, JSON-encoded.
+ * Observes user interactions in the capture phase and hands each one, as a
+ * wire payload, to whatever `report` it was installed with. It knows nothing
+ * about how the payload leaves the page: the CDP binding entry
+ * (`cdp-binding.ts`) is one delivery channel, an extension content script
+ * relaying over `chrome.runtime` would be another.
  *
  * Listeners are registered in the capture phase so an interaction is reported
  * even when the page stops propagation on its own handlers.
@@ -18,9 +19,11 @@ import type {
 import {
   MAX_SELECTOR_CLASSES,
   MAX_TEXT_SNIPPET_LENGTH,
-  PROBE_BINDING_NAME,
   PROBE_INJECTED_FLAG,
 } from '../constants.js';
+
+/** Receives each observed interaction. Must not throw into the page. */
+export type ProbeReporter = (payload: InteractionWirePayload) => void;
 
 const WHITESPACE = /\s+/g;
 
@@ -133,43 +136,41 @@ function targetOf(event: Event): TargetElementMeta | null {
   });
 }
 
-function report(action: InteractionAction, target: TargetElementMeta): void {
-  const send = window[PROBE_BINDING_NAME];
-  if (typeof send !== 'function') {
-    // The binding has not landed yet — drop rather than buffer, matching the
-    // Node side's expectation that the probe is fire-and-forget.
-    return;
-  }
-
-  const payload: InteractionWirePayload = {
-    action,
-    target,
-    timestamp: Date.now() / 1000,
-  };
-
-  send(JSON.stringify(payload));
-}
-
-function install(): void {
-  if (window[PROBE_INJECTED_FLAG]) return;
+/**
+ * Starts observing, reporting each interaction through `report`. Returns a
+ * disposer that stops observing.
+ *
+ * A second install into the same document is a no-op (the returned disposer
+ * does nothing), so the probe can be injected more than once safely — e.g. on
+ * new documents and again into the one already showing.
+ */
+export function installProbe(report: ProbeReporter): () => void {
+  if (window[PROBE_INJECTED_FLAG]) return () => {};
   window[PROBE_INJECTED_FLAG] = true;
 
-  window.addEventListener(
-    'click',
-    (event) => {
-      const target = targetOf(event);
-      if (target) report('click', target);
-    },
-    true,
-  );
+  const emit = (action: InteractionAction, target: TargetElementMeta): void => {
+    report({
+      action,
+      target,
+      timestamp: Date.now() / 1000,
+    });
+  };
 
-  window.addEventListener(
-    'scrollend',
-    (event) => {
-      report('scrollend', targetOf(event) ?? describeViewport());
-    },
-    true,
-  );
+  const onClick = (event: Event): void => {
+    const target = targetOf(event);
+    if (target) emit('click', target);
+  };
+
+  const onScrollEnd = (event: Event): void => {
+    emit('scrollend', targetOf(event) ?? describeViewport());
+  };
+
+  window.addEventListener('click', onClick, true);
+  window.addEventListener('scrollend', onScrollEnd, true);
+
+  return () => {
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('scrollend', onScrollEnd, true);
+    window[PROBE_INJECTED_FLAG] = false;
+  };
 }
-
-install();

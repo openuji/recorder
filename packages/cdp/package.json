@@ -1,0 +1,26 @@
+{
+  "name": "@openuji/cdp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The CDP transport contract every host implements, plus the recording target it is handed out with. Isomorphic: Node, Electron, extension service worker.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "devtools-protocol": "^0.0.1707781"
+  }
+}

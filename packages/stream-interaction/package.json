@@ -12,18 +12,13 @@
       "default": "./dist/index.js"
     }
   },
-  "bin": {
-    "uxr-stream-interaction": "./dist/cli.js"
-  },
   "files": ["dist"],
   "scripts": {
-    "typecheck": "tsc --build",
-    "dev": "node dist/cli.js"
+    "typecheck": "tsc --build"
   },
   "dependencies": {
-    "@openuji/cli-kit": "workspace:*",
+    "@openuji/cdp": "workspace:*",
     "@openuji/client-probe": "workspace:*",
-    "@openuji/core": "workspace:*",
-    "playwright": "^1.63.0"
+    "@openuji/core": "workspace:*"
   }
 }

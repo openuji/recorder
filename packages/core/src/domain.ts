@@ -6,7 +6,11 @@ import type { InteractionAction, TargetElementMeta } from './wire.js';
 
 export type CompositorFrame = Readonly<{
   index: number;
-  buffer: Buffer;
+  /**
+   * The encoded image, base64 — exactly as CDP delivers it. Kept encoded so
+   * the many frames no rule captures are never decoded; see `decodeBase64`.
+   */
+  base64: string;
   scrollX: number;
   scrollY: number;
   viewportWidth: number;

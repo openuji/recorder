@@ -8,7 +8,7 @@ export function frame(
 ): CompositorFrame {
   return {
     index: ++nextFrameIndex,
-    buffer: Buffer.from('png'),
+    base64: 'cG5n',
     scrollX: 0,
     scrollY: 0,
     viewportWidth: 1280,

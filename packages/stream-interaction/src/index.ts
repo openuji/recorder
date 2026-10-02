@@ -1,7 +1,6 @@
-import type { CDPSession, Page } from 'playwright';
+import type { CdpTransport, Detach } from '@openuji/cdp';
 import {
   createPushStream,
-  ownSession,
   type InteractionEvent,
   type InteractionWirePayload,
   type PushStreamStats,
@@ -15,59 +14,118 @@ export interface InteractionStreamHandle {
 }
 
 /**
- * Installs the in-page probe and streams the user interactions it reports.
- *
- * The probe (`@openuji/client-probe`) runs in the page and calls back through a CDP
- * binding; this side owns the binding, the injection, and the decoding. Like
- * the lifecycle stream it never drops — a click is an arming signal a rule is
- * waiting on.
+ * Decodes one JSON payload the probe sent. Independent of how it travelled, so
+ * any delivery channel can reuse it. Returns `null` for anything malformed.
  */
-export async function createInteractionStream(
-  page: Page,
-  existingClient?: CDPSession,
-): Promise<InteractionStreamHandle> {
-  const owned = ownSession(
-    existingClient ?? (await page.context().newCDPSession(page)),
-    !existingClient,
-  );
-  const client = owned.session;
+export function decodeProbePayload(json: string): InteractionEvent | null {
+  let payload: InteractionWirePayload;
+  try {
+    payload = JSON.parse(json) as InteractionWirePayload;
+  } catch {
+    return null;
+  }
+  if (typeof payload !== 'object' || payload === null) return null;
 
-  const stream = createPushStream<InteractionEvent>();
+  return {
+    action: payload.action,
+    target: payload.target,
+    timestamp: payload.timestamp,
+  };
+}
 
-  const onBindingCalled = (raw: { name: string; payload: string }): void => {
-    if (stream.closed || raw.name !== PROBE_BINDING_NAME) return;
+/**
+ * Installs the in-page probe and emits the user interactions it reports,
+ * synchronously from inside the CDP event handler.
+ *
+ * The probe (`@openuji/client-probe`) runs in the page and calls back through a
+ * CDP binding; this side owns the binding, the injection, and the decoding.
+ * Binding calls travel in the same ordered CDP event stream as compositor
+ * frames, which is what keeps "the resting frame before this click" exact.
+ * Shared by the standalone stream and the fused orchestrator.
+ */
+export async function attachInteraction(
+  cdp: CdpTransport,
+  emit: (event: InteractionEvent) => void,
+): Promise<Detach> {
+  const unsubscribe = cdp.on('Runtime.bindingCalled', (raw) => {
+    if (raw.name !== PROBE_BINDING_NAME) return;
 
-    let payload: InteractionWirePayload;
-    try {
-      payload = JSON.parse(raw.payload) as InteractionWirePayload;
-    } catch (err) {
-      console.error('Failed to parse interaction payload:', err);
+    const event = decodeProbePayload(raw.payload);
+    if (!event) {
+      console.error('Ignoring malformed interaction payload:', raw.payload);
       return;
     }
+    emit(event);
+  });
 
-    stream.push({
-      action: payload.action,
-      target: payload.target,
-      timestamp: payload.timestamp,
-    });
+  let scriptId: string | undefined;
+
+  // Best-effort: the page may already be gone. In an extension the tab outlives
+  // the recording, so leaving the binding and script behind would keep the
+  // probe injecting into every later document.
+  const cleanup = async (): Promise<void> => {
+    unsubscribe();
+    const identifier = scriptId;
+    if (identifier) {
+      await cdp
+        .send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+        .catch(() => {});
+    }
+    await cdp
+      .send('Runtime.removeBinding', { name: PROBE_BINDING_NAME })
+      .catch(() => {});
   };
 
-  client.on('Runtime.bindingCalled', onBindingCalled);
+  try {
+    await cdp.send('Runtime.enable');
+    await cdp.send('Runtime.addBinding', { name: PROBE_BINDING_NAME });
 
-  await client.send('Runtime.enable');
-  await client.send('Runtime.addBinding', { name: PROBE_BINDING_NAME });
+    await cdp.send('Page.enable');
+    scriptId = (
+      await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: PROBE_SOURCE,
+      })
+    )?.identifier;
 
-  await client.send('Page.enable');
-  await client.send('Page.addScriptToEvaluateOnNewDocument', {
-    source: PROBE_SOURCE,
-  });
+    // The script above only runs in documents created from now on. A host that
+    // attaches to a page already showing a document (an extension attaching to
+    // an open tab) needs the probe there too; the probe's own guard makes a
+    // second install a no-op.
+    await cdp
+      .send('Runtime.evaluate', { expression: PROBE_SOURCE })
+      .catch(() => {});
+  } catch (err) {
+    await cleanup();
+    throw err;
+  }
+
+  let detached = false;
+  return async () => {
+    if (detached) return;
+    detached = true;
+
+    await cleanup();
+  };
+}
+
+/**
+ * Streams user interactions on their own — no orchestrator, no sibling
+ * streams. Leaves the transport to its owner.
+ *
+ * Like the lifecycle stream it never drops — a click is an arming signal a rule
+ * is waiting on.
+ */
+export async function createInteractionStream(
+  cdp: CdpTransport,
+): Promise<InteractionStreamHandle> {
+  const stream = createPushStream<InteractionEvent>();
+
+  const detach = await attachInteraction(cdp, (event) => stream.push(event));
 
   const stop = async (): Promise<void> => {
     if (stream.closed) return;
 
-    client.off('Runtime.bindingCalled', onBindingCalled);
-    await owned.release();
-
+    await detach();
     stream.end();
   };
 

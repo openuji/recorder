@@ -8,7 +8,9 @@ import {
   collect,
   frameNavigated,
   lifecycleEvent,
+  replayOnEnable,
   screencastFrame,
+  showingDocument,
 } from '../../cdp/test/events.js';
 
 const viewport = { width: 1280, height: 800 };
@@ -38,6 +40,27 @@ describe('createFusedStream', () => {
       'lifecycle',
       'frame',
     ]);
+  });
+
+  it("drops a loaded page's replayed milestones but keeps its live ones", async () => {
+    const cdp = createFakeCdpTransport();
+    showingDocument(cdp, 'loader-now');
+    replayOnEnable(cdp, () => {
+      lifecycleEvent(cdp, 'DOMContentLoaded', 'loader-now');
+      lifecycleEvent(cdp, 'networkAlmostIdle', 'loader-now');
+    });
+
+    const { events, stop } = await createFusedStream(cdp, {
+      screencast: { viewport },
+    });
+    lifecycleEvent(cdp, 'networkIdle', 'loader-now');
+    await stop();
+
+    expect(
+      (await collect(events)).map((e) =>
+        e.type === 'lifecycle' ? `lifecycle ${e.name}` : e.type,
+      ),
+    ).toEqual(['committed', 'lifecycle networkIdle']);
   });
 
   it('attaches all three sources to the one transport it was given', async () => {

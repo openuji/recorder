@@ -96,7 +96,7 @@ export function reduce(
           url: current.url,
           nextLoaderId: event.loaderId,
           nextUrl: event.url,
-          timestamp: event.timestamp,
+          receivedAtMs: event.receivedAtMs,
         };
 
         const exit = evaluateRules(rules, working.ruleStates, exitEvent, {

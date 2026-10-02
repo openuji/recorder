@@ -2,7 +2,18 @@
 import { runMain, runStreamCli } from '@openuji/cli-kit';
 import { createLifecycleStream } from '@openuji/stream-lifecycle';
 
-/** Standalone lifecycle stream: live navigation and paint milestones. */
+const RESET = '\x1b[0m';
+
+const elapsed = (ms: number): string => `+${ms.toFixed(0).padStart(6, ' ')}ms`;
+
+/**
+ * Standalone lifecycle stream: live navigation and paint milestones.
+ *
+ * Lines print in arrival order — the order fusion uses. The `+…ms` column is
+ * host receipt time since the first event; milestones also show `chrome +…ms`,
+ * Chromium's own clock since the first milestone, which need not be in arrival
+ * order.
+ */
 runMain(async () => {
   await runStreamCli({
     label: 'standalone lifecycle stream',
@@ -13,23 +24,27 @@ runMain(async () => {
 
       const consumed = (async () => {
         let baseline: number | null = null;
+        let chromeBaseline: number | null = null;
 
         for await (const event of events) {
-          baseline ??= event.timestamp;
+          baseline ??= event.receivedAtMs;
 
-          const elapsedMs = ((event.timestamp - baseline) * 1000).toFixed(0);
-          const target = event.isMainFrame ? '[MainFrame]' : '[SubFrame ]';
-          const loader = event.loaderId.slice(0, 8);
+          const scope = event.isMainFrame ? '[MainFrame]' : '[SubFrame ]';
+          const ids =
+            `frame: ${event.frameId.slice(0, 8)} | ` +
+            `loader: ${event.loaderId.slice(0, 8)}`;
+          const received = elapsed(event.receivedAtMs - baseline);
 
           if (event.type === 'committed') {
             console.log(
-              `\x1b[32m${target} COMMITTED\x1b[0m | ` +
-                `loaderId: ${loader} | ` +
-                `+${elapsedMs.padStart(6, ' ')}ms | ` +
+              `\x1b[32m${scope} COMMITTED${RESET} | ${ids} | ${received} | ` +
                 `url: ${event.url}`,
             );
             continue;
           }
+
+          chromeBaseline ??= event.monotonicTime;
+          const chrome = elapsed((event.monotonicTime - chromeBaseline) * 1000);
 
           const isPaint =
             event.name === 'firstPaint' ||
@@ -37,11 +52,11 @@ runMain(async () => {
           const isDom =
             event.name === 'DOMContentLoaded' || event.name === 'load';
           const color = isPaint ? '\x1b[33m' : isDom ? '\x1b[36m' : '\x1b[90m';
+          const name = event.replayed ? `${event.name} (replayed)` : event.name;
 
           console.log(
-            `${color}${target} MILESTONE: ${event.name.padEnd(20, ' ')}\x1b[0m | ` +
-              `loaderId: ${loader} | ` +
-              `+${elapsedMs.padStart(6, ' ')}ms`,
+            `${color}${scope} MILESTONE: ${name.padEnd(29, ' ')}${RESET} | ` +
+              `${ids} | ${received} | chrome ${chrome}`,
           );
         }
       })();

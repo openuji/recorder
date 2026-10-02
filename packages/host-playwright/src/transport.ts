@@ -34,6 +34,7 @@ export function createPlaywrightTransport(
   return {
     send: send as CdpTransport['send'],
     on: router.on,
+    now: router.now,
     dispose: () => {
       session.off('event', onEvent);
     },

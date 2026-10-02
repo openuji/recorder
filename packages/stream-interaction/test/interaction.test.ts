@@ -35,7 +35,7 @@ describe('createInteractionStream (standalone)', () => {
 
   it('decodes probe calls and ignores foreign bindings and malformed payloads', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const cdp = createFakeCdpTransport();
+    const cdp = createFakeCdpTransport({ startAtMs: 2_000 });
     const { events, stop } = await createInteractionStream(cdp);
 
     bindingCalled(cdp, PROBE_BINDING_NAME, clickPayload('button#go'));
@@ -47,6 +47,10 @@ describe('createInteractionStream (standalone)', () => {
     expect(out.map((e) => [e.action, e.target.selector])).toEqual([
       ['click', 'button#go'],
     ]);
+    expect(out[0]).toMatchObject({
+      receivedAtMs: 2_000,
+      pageTimeMs: 1_700_000_000_000,
+    });
     expect(error).toHaveBeenCalledTimes(1);
   });
 
@@ -81,15 +85,16 @@ describe('createInteractionStream (standalone)', () => {
 });
 
 describe('decodeProbePayload', () => {
-  it('decodes a wire payload', () => {
-    expect(decodeProbePayload(clickPayload('a.link'))).toMatchObject({
+  it('decodes a wire payload, keeping the page clock apart from receipt time', () => {
+    expect(decodeProbePayload(clickPayload('a.link'), 42)).toMatchObject({
       action: 'click',
       target: { selector: 'a.link' },
-      timestamp: 1_700_000_000,
+      receivedAtMs: 42,
+      pageTimeMs: 1_700_000_000_000,
     });
   });
 
   it.each(['{not json', 'null', '42'])('rejects %s', (json) => {
-    expect(decodeProbePayload(json)).toBeNull();
+    expect(decodeProbePayload(json, 0)).toBeNull();
   });
 });

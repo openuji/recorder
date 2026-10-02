@@ -63,6 +63,26 @@ preserve them:
    transport the host hands out; streams subscribe and unsubscribe but never
    create or close it. Only the host (`RecordingTarget.close()`) ends it.
 
+### Clocks
+
+Arrival order is the only order the pipeline uses; timestamps are diagnostic.
+Every frame, lifecycle event and interaction carries `receivedAtMs`, stamped
+by the transport when the event arrived — the one clock comparable across
+sources. Sources never read a clock themselves; the clock is injected into the
+transport, so tests run on a manual one. Source times keep their own clock under their own name: `swapTimeMs`
+(Chromium frame swap, epoch ms), `monotonicTime` (Chromium `MonotonicTime`,
+seconds from an arbitrary origin) and `pageTimeMs` (the page's clock, epoch ms).
+Never subtract one clock from another.
+
+### Attaching to a page that already has a document
+
+The lifecycle source reads the frame tree before enabling lifecycle reporting,
+so Chromium's immediate replay of the current document's milestones is
+attributed to the right frame. Replayed milestones are tagged `replayed`: the
+standalone stream shows them, the fused stream drops them — they describe the
+past, and rules must only arm on live signals. The initial `about:blank` of a
+fresh page is ignored entirely.
+
 ---
 
 ## Packages

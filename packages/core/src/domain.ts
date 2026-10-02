@@ -1,5 +1,21 @@
 /**
  * Shared domain models across all streams and engine components.
+ *
+ * ## Clocks
+ *
+ * Arrival order — the order events reach the one fused FIFO — is the only
+ * order fusion and the rules rely on. Timestamps are diagnostic, and each one
+ * names its clock:
+ *
+ *  - `receivedAtMs`: Unix epoch ms, stamped by the transport the moment an
+ *    event arrives (`CdpTransport.now`, `Date.now` unless injected). Every
+ *    frame, lifecycle event and interaction carries it; it is the one clock
+ *    comparable across all events. Sources never read a clock themselves.
+ *  - `swapTimeMs`: Chromium's frame-swap time, Unix epoch ms (frames).
+ *  - `monotonicTime`: Chromium's `MonotonicTime` — seconds since an arbitrary
+ *    origin, comparable only with other `monotonicTime` values (milestones).
+ *  - `pageTimeMs`: the page's `Date.now()` at the DOM event, Unix epoch ms
+ *    (interactions).
  */
 
 import type { InteractionAction, TargetElementMeta } from './wire.js';
@@ -16,7 +32,9 @@ export type CompositorFrame = Readonly<{
   viewportWidth: number;
   viewportHeight: number;
   pageScaleFactor: number;
-  timestamp: number; // Unix epoch ms
+  receivedAtMs: number;
+  /** Absent when Chromium does not report it. */
+  swapTimeMs?: number;
 }>;
 
 export type LifecycleEvent =
@@ -26,7 +44,7 @@ export type LifecycleEvent =
       isMainFrame: boolean;
       loaderId: string;
       url: string;
-      timestamp: number; // Monotonic seconds from Chromium
+      receivedAtMs: number;
     }>
   | Readonly<{
       type: 'milestone';
@@ -34,6 +52,7 @@ export type LifecycleEvent =
       isMainFrame: boolean;
       loaderId: string;
       name:
+        | 'init'
         | 'commit'
         | 'DOMContentLoaded'
         | 'load'
@@ -43,13 +62,21 @@ export type LifecycleEvent =
         | 'networkAlmostIdle'
         | 'networkIdle'
         | (string & {});
-      timestamp: number;
+      receivedAtMs: number;
+      monotonicTime: number;
+      /**
+       * Reported by Chromium as the document's current state when lifecycle
+       * reporting was enabled — not as it happened. A snapshot of the past, so
+       * never a live arming signal.
+       */
+      replayed: boolean;
     }>;
 
 export type InteractionEvent = Readonly<{
   action: InteractionAction;
   target: TargetElementMeta;
-  timestamp: number;
+  receivedAtMs: number;
+  pageTimeMs: number;
 }>;
 
 export type DocumentState = Readonly<{
@@ -67,14 +94,15 @@ export type DomainEvent =
       isMainFrame: boolean;
       loaderId: string;
       url: string;
-      timestamp: number;
+      receivedAtMs: number;
     }>
   | Readonly<{
       type: 'lifecycle';
       frameId: string;
       loaderId: string;
       name: string;
-      timestamp: number;
+      receivedAtMs: number;
+      monotonicTime: number;
     }>
   | Readonly<{
       type: 'frame';
@@ -84,7 +112,8 @@ export type DomainEvent =
       type: 'interaction';
       action: InteractionAction;
       target: TargetElementMeta;
-      timestamp: number;
+      receivedAtMs: number;
+      pageTimeMs: number;
     }>
   /**
    * Synthesized by the rules engine — never produced by a stream. Emitted to
@@ -98,7 +127,8 @@ export type DomainEvent =
       url: string;
       nextLoaderId: string;
       nextUrl: string;
-      timestamp: number;
+      /** Taken from the commit that replaced the document. */
+      receivedAtMs: number;
     }>
   | Readonly<{
       type: 'stop';

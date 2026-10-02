@@ -18,7 +18,7 @@ describe('createCdpEventRouter', () => {
   });
 
   it('stops delivering after unsubscribe', () => {
-    const router = createCdpEventRouter();
+    const router = createCdpEventRouter({ clock: () => 7 });
     const listener = vi.fn();
 
     const off = router.on('Page.screencastFrame', listener);
@@ -27,8 +27,30 @@ describe('createCdpEventRouter', () => {
     router.dispatch('Page.screencastFrame', { n: 2 });
 
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(listener).toHaveBeenCalledWith({ n: 1 });
+    expect(listener).toHaveBeenCalledWith({ n: 1 }, { receivedAtMs: 7 });
     expect(router.listenerCount()).toBe(0);
+  });
+
+  it('stamps each event once, and every listener sees that stamp', () => {
+    let time = 100;
+    const router = createCdpEventRouter({ clock: () => time++ });
+    const stamps: number[] = [];
+
+    router.on('Page.lifecycleEvent', (_, { receivedAtMs }) => stamps.push(receivedAtMs));
+    router.on('Page.lifecycleEvent', (_, { receivedAtMs }) => stamps.push(receivedAtMs));
+    router.dispatch('Page.lifecycleEvent', {});
+    router.dispatch('Page.lifecycleEvent', {});
+
+    expect(stamps).toEqual([100, 100, 101, 101]);
+  });
+
+  it('reads no clock for an event nobody listens to', () => {
+    const clock = vi.fn(() => 0);
+    const router = createCdpEventRouter({ clock });
+
+    router.dispatch('Page.screencastFrame', {});
+
+    expect(clock).not.toHaveBeenCalled();
   });
 
   it('delivers the in-flight event to a listener unsubscribed mid-dispatch', () => {

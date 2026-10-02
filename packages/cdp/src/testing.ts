@@ -3,7 +3,8 @@
  *
  * Tests script Chromium's side of the conversation: `respond` sets what a
  * command returns, `emit` plays an event, and `sent` records every command the
- * code under test issued, in order.
+ * code under test issued, in order. Time is a manual clock: it stands still
+ * until `advance` moves it.
  */
 
 import { createCdpEventRouter } from './router.js';
@@ -38,11 +39,23 @@ export interface FakeCdpTransport extends CdpTransport {
    * the fields the code under test reads.
    */
   emit(event: CdpEventName, params?: unknown): void;
+  /** Move the clock forward; events emitted afterwards carry the new time. */
+  advance(ms: number): void;
   listenerCount(event?: CdpEventName): number;
 }
 
-export function createFakeCdpTransport(): FakeCdpTransport {
+export interface FakeCdpTransportOptions {
+  /** Where the clock starts, Unix epoch ms. Defaults to 0. */
+  startAtMs?: number;
+}
+
+export function createFakeCdpTransport(
+  options: FakeCdpTransportOptions = {},
+): FakeCdpTransport {
+  let time = options.startAtMs ?? 0;
+
   const router = createCdpEventRouter({
+    clock: () => time,
     // Surface listener bugs as test failures rather than log noise.
     onListenerError: (error) => {
       throw error;
@@ -64,6 +77,7 @@ export function createFakeCdpTransport(): FakeCdpTransport {
   return {
     send: send as CdpTransport['send'],
     on: router.on,
+    now: router.now,
     sent,
     sentMethods: () => sent.map((command) => command.method),
     respond(method, result) {
@@ -71,6 +85,9 @@ export function createFakeCdpTransport(): FakeCdpTransport {
     },
     emit(event, params) {
       router.dispatch(event, params);
+    },
+    advance(ms) {
+      time += ms;
     },
     listenerCount: (event) => router.listenerCount(event),
   };

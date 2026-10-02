@@ -35,6 +35,6 @@ export type TargetElementMeta = Readonly<{
 export type InteractionWirePayload = Readonly<{
   action: InteractionAction;
   target: TargetElementMeta;
-  /** Seconds since the Unix epoch (`Date.now() / 1000`). */
-  timestamp: number;
+  /** The page's `Date.now()` at the DOM event — Unix epoch ms, page clock. */
+  pageTimeMs: number;
 }>;

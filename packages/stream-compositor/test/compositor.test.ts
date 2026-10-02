@@ -10,12 +10,13 @@ function startScreencastParams(cdp: ReturnType<typeof createFakeCdpTransport>) {
 
 describe('createCompositorStream (standalone)', () => {
   it('emits a frame per screencastFrame and ACKs each with its session id', async () => {
-    const cdp = createFakeCdpTransport();
+    const cdp = createFakeCdpTransport({ startAtMs: 5_000 });
     const { frames, stop } = await createCompositorStream(cdp, {
       viewport: { width: 1280, height: 800 },
     });
 
     screencastFrame(cdp, { sessionId: 7, data: 'AAAA' });
+    cdp.advance(16);
     screencastFrame(cdp, { sessionId: 8, scrollY: 120 });
     await stop();
 
@@ -24,7 +25,10 @@ describe('createCompositorStream (standalone)', () => {
       [1, 0, 'AAAA'],
       [2, 120, 'cG5n'],
     ]);
-    expect(out[0]?.timestamp).toBe(1_700_000_000_000);
+    // Receipt time comes from the transport's clock; Chromium's swap time
+    // (epoch seconds) keeps its own field.
+    expect(out.map((f) => f.receivedAtMs)).toEqual([5_000, 5_016]);
+    expect(out[0]?.swapTimeMs).toBe(1_700_000_000_000);
 
     const acks = cdp.sent.filter((c) => c.method === 'Page.screencastFrameAck');
     expect(acks.map((c) => c.params)).toEqual([{ sessionId: 7 }, { sessionId: 8 }]);

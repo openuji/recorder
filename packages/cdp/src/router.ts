@@ -6,13 +6,16 @@
  * listener into `dispatch` and gets `CdpTransport.on` semantics back.
  *
  * Dispatch is synchronous and in arrival order — the ordering guarantee the
- * fused stream is built on. A throwing listener is isolated and reported, so
+ * fused stream is built on. Each event is stamped with one clock reading that
+ * all its listeners share. A throwing listener is isolated and reported, so
  * one broken source cannot starve its siblings of the same event.
  */
 
 import type {
   CdpEventListener,
+  CdpEventMeta,
   CdpEventName,
+  Clock,
   Unsubscribe,
 } from './transport.js';
 
@@ -23,16 +26,20 @@ export interface CdpEventRouter {
   ): Unsubscribe;
   /** Deliver one event to every listener registered for `method`. */
   dispatch(method: string, params: unknown): void;
+  /** The clock `dispatch` stamps events with. */
+  readonly now: Clock;
   /** Registered listeners for `method`, or across all methods when omitted. */
   listenerCount(method?: string): number;
 }
 
 export interface CdpEventRouterOptions {
+  /** Stamps `receivedAtMs`. Defaults to `Date.now`. */
+  clock?: Clock;
   /** Called when a listener throws. Defaults to `console.error`. */
   onListenerError?: (error: unknown, method: string) => void;
 }
 
-type AnyListener = (params: unknown) => void;
+type AnyListener = (params: unknown, meta: CdpEventMeta) => void;
 
 export function createCdpEventRouter(
   options: CdpEventRouterOptions = {},
@@ -43,9 +50,12 @@ export function createCdpEventRouter(
       console.error(`CDP listener for ${method} threw:`, error);
     });
 
+  const clock = options.clock ?? Date.now;
   const listeners = new Map<string, Set<AnyListener>>();
 
   return {
+    now: clock,
+
     on(event, listener) {
       const handler = listener as AnyListener;
       let set = listeners.get(event);
@@ -67,11 +77,13 @@ export function createCdpEventRouter(
       const set = listeners.get(method);
       if (!set) return;
 
+      const meta: CdpEventMeta = { receivedAtMs: clock() };
+
       // Snapshot, so a listener that unsubscribes (or subscribes) mid-dispatch
       // does not change who receives this event.
       for (const listener of [...set]) {
         try {
-          listener(params);
+          listener(params, meta);
         } catch (error) {
           onListenerError(error, method);
         }

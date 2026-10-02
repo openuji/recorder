@@ -16,8 +16,14 @@ export interface InteractionStreamHandle {
 /**
  * Decodes one JSON payload the probe sent. Independent of how it travelled, so
  * any delivery channel can reuse it. Returns `null` for anything malformed.
+ *
+ * `receivedAtMs` is when the payload reached the host (see the clocks note in
+ * `@openuji/core`); the probe's own `pageTimeMs` is carried through as is.
  */
-export function decodeProbePayload(json: string): InteractionEvent | null {
+export function decodeProbePayload(
+  json: string,
+  receivedAtMs: number,
+): InteractionEvent | null {
   let payload: InteractionWirePayload;
   try {
     payload = JSON.parse(json) as InteractionWirePayload;
@@ -29,7 +35,8 @@ export function decodeProbePayload(json: string): InteractionEvent | null {
   return {
     action: payload.action,
     target: payload.target,
-    timestamp: payload.timestamp,
+    receivedAtMs,
+    pageTimeMs: payload.pageTimeMs,
   };
 }
 
@@ -47,10 +54,10 @@ export async function attachInteraction(
   cdp: CdpTransport,
   emit: (event: InteractionEvent) => void,
 ): Promise<Detach> {
-  const unsubscribe = cdp.on('Runtime.bindingCalled', (raw) => {
+  const unsubscribe = cdp.on('Runtime.bindingCalled', (raw, { receivedAtMs }) => {
     if (raw.name !== PROBE_BINDING_NAME) return;
 
-    const event = decodeProbePayload(raw.payload);
+    const event = decodeProbePayload(raw.payload, receivedAtMs);
     if (!event) {
       console.error('Ignoring malformed interaction payload:', raw.payload);
       return;
@@ -99,13 +106,7 @@ export async function attachInteraction(
     throw err;
   }
 
-  let detached = false;
-  return async () => {
-    if (detached) return;
-    detached = true;
-
-    await cleanup();
-  };
+  return cleanup;
 }
 
 /**

@@ -1,9 +1,16 @@
-import type { CdpTransport, Detach, Viewport } from '@openuji/cdp';
+import type {
+  CdpEventParams,
+  CdpTransport,
+  Detach,
+  Viewport,
+} from '@openuji/cdp';
 import {
   createPushStream,
   type CompositorFrame,
   type PushStreamStats,
 } from '@openuji/core';
+
+type RawFrame = CdpEventParams<'Page.screencastFrame'>;
 
 /** Used only when neither the caller nor CDP can say how big the viewport is. */
 const FALLBACK_VIEWPORT: Viewport = { width: 1280, height: 800 };
@@ -60,33 +67,21 @@ export async function attachCompositor(
 ): Promise<Detach> {
   let frameCount = 0;
 
-  const unsubscribe = cdp.on('Page.screencastFrame', (raw) => {
+  const unsubscribe = cdp.on('Page.screencastFrame', (raw, { receivedAtMs }) => {
     // ACK first, before any other work: Chromium withholds the next frame until
     // the previous one is acknowledged, so any delay here throttles the stream.
     void cdp
       .send('Page.screencastFrameAck', { sessionId: raw.sessionId })
       .catch(() => {});
 
-    const meta = raw.metadata;
-    emit({
-      index: ++frameCount,
-      // Chromium reports a frame-swap timestamp in seconds; the domain model
-      // uses epoch milliseconds.
-      timestamp: meta?.timestamp ? meta.timestamp * 1000 : Date.now(),
-      scrollX: meta?.scrollOffsetX ?? 0,
-      scrollY: meta?.scrollOffsetY ?? 0,
-      viewportWidth: meta?.deviceWidth ?? 0,
-      viewportHeight: meta?.deviceHeight ?? 0,
-      pageScaleFactor: meta?.pageScaleFactor ?? 1,
-      base64: raw.data,
-    });
+    emit(toFrame(raw, ++frameCount, receivedAtMs));
   });
 
   try {
     const bounds = await screencastBounds(cdp, options);
     await cdp.send('Page.startScreencast', {
       format: options.format ?? 'png',
-      ...(options.quality !== undefined ? { quality: options.quality } : {}),
+      quality: options.quality,
       everyNthFrame: options.everyNthFrame ?? 1,
       maxWidth: bounds.width,
       maxHeight: bounds.height,
@@ -96,13 +91,31 @@ export async function attachCompositor(
     throw err;
   }
 
-  let detached = false;
   return async () => {
-    if (detached) return;
-    detached = true;
-
     await cdp.send('Page.stopScreencast').catch(() => {});
     unsubscribe();
+  };
+}
+
+/** A CDP screencast frame as a domain frame. Pure. */
+function toFrame(
+  { data, metadata }: RawFrame,
+  index: number,
+  receivedAtMs: number,
+): CompositorFrame {
+  return {
+    index,
+    base64: data,
+    scrollX: metadata.scrollOffsetX,
+    scrollY: metadata.scrollOffsetY,
+    viewportWidth: metadata.deviceWidth,
+    viewportHeight: metadata.deviceHeight,
+    pageScaleFactor: metadata.pageScaleFactor,
+    receivedAtMs,
+    // CDP's frame-swap time (when the frame was on screen) is optional and in
+    // epoch seconds.
+    swapTimeMs:
+      metadata.timestamp === undefined ? undefined : metadata.timestamp * 1000,
   };
 }
 

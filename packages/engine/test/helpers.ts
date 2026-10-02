@@ -14,7 +14,7 @@ export function frame(
     viewportWidth: 1280,
     viewportHeight: 800,
     pageScaleFactor: 1,
-    timestamp: Date.now(),
+    receivedAtMs: 0,
     ...overrides,
   };
 }
@@ -30,12 +30,19 @@ export function committed(loaderId: string, url = `https://example.com/${loaderI
     isMainFrame: true,
     loaderId,
     url,
-    timestamp: 0,
+    receivedAtMs: 0,
   };
 }
 
 export function lifecycle(name: string, loaderId: string): DomainEvent {
-  return { type: 'lifecycle', frameId: 'main', loaderId, name, timestamp: 0 };
+  return {
+    type: 'lifecycle',
+    frameId: 'main',
+    loaderId,
+    name,
+    receivedAtMs: 0,
+    monotonicTime: 0,
+  };
 }
 
 export function target(selector = 'a.link'): TargetElementMeta {
@@ -53,7 +60,8 @@ export function click(selector?: string): DomainEvent {
     type: 'interaction',
     action: 'click',
     target: target(selector),
-    timestamp: 0,
+    receivedAtMs: 0,
+    pageTimeMs: 0,
   };
 }
 
@@ -62,6 +70,7 @@ export function scrollEnd(): DomainEvent {
     type: 'interaction',
     action: 'scrollend',
     target: target('window'),
-    timestamp: 0,
+    receivedAtMs: 0,
+    pageTimeMs: 0,
   };
 }

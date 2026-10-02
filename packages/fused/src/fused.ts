@@ -73,33 +73,42 @@ export async function createFusedStream(
       screencast,
     ),
 
-    attachLifecycle(cdp, (event) =>
-      stream.push(
-        event.type === 'committed'
-          ? {
-              type: 'committed',
-              frameId: event.frameId,
-              isMainFrame: event.isMainFrame,
-              loaderId: event.loaderId,
-              url: event.url,
-              timestamp: event.timestamp,
-            }
-          : {
-              type: 'lifecycle',
-              frameId: event.frameId,
-              loaderId: event.loaderId,
-              name: event.name,
-              timestamp: event.timestamp,
-            },
-      ),
-    ),
+    attachLifecycle(cdp, (event) => {
+      if (event.type === 'committed') {
+        stream.push({
+          type: 'committed',
+          frameId: event.frameId,
+          isMainFrame: event.isMainFrame,
+          loaderId: event.loaderId,
+          url: event.url,
+          receivedAtMs: event.receivedAtMs,
+        });
+        return;
+      }
+
+      // A replayed milestone is the attached document's past, not something
+      // that just happened. Rules arm on "capture the next frame after X";
+      // fed a replay, they would label the first frames after attaching as
+      // `01-domcontentloaded` / `02-settled`.
+      if (event.replayed) return;
+
+      stream.push({
+        type: 'lifecycle',
+        frameId: event.frameId,
+        loaderId: event.loaderId,
+        name: event.name,
+        receivedAtMs: event.receivedAtMs,
+        monotonicTime: event.monotonicTime,
+      });
+    }),
 
     attachInteraction(cdp, (event) =>
       stream.push({
         type: 'interaction',
         action: event.action,
         target: event.target,
-        timestamp: event.timestamp,
+        receivedAtMs: event.receivedAtMs,
+        pageTimeMs: event.pageTimeMs,
       }),
     ),
   ]);

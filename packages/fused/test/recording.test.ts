@@ -8,7 +8,9 @@ import {
   clickPayload,
   frameNavigated,
   lifecycleEvent,
+  replayOnEnable,
   screencastFrame,
+  showingDocument,
 } from '../../cdp/test/events.js';
 
 class MemorySink implements CaptureSink {
@@ -66,6 +68,33 @@ describe('startRecording', () => {
     expect(byLabel.get('11-post-click-01')?.frame.base64).toBe('YWZ0ZXI=');
     expect(byLabel.get('11-post-click-01')?.domTarget?.selector).toBe('button#go');
     expect(sink.drained).toBe(1);
+  });
+
+  it('attached to an already-loaded page, does not capture milestones it never saw', async () => {
+    const cdp = createFakeCdpTransport();
+    showingDocument(cdp, 'loader-now');
+    replayOnEnable(cdp, () => {
+      lifecycleEvent(cdp, 'commit', 'loader-now');
+      lifecycleEvent(cdp, 'DOMContentLoaded', 'loader-now');
+      lifecycleEvent(cdp, 'load', 'loader-now');
+      lifecycleEvent(cdp, 'networkAlmostIdle', 'loader-now');
+    });
+
+    const sink = new MemorySink();
+    const recording = await startRecording(cdp, { sinks: [sink], screencast });
+
+    screencastFrame(cdp);
+    screencastFrame(cdp);
+    await settle();
+    await recording.stop();
+
+    // Without the replay filter these frames would also be labelled
+    // `01-domcontentloaded` and `02-settled`, moments that happened before the
+    // recording started.
+    expect(sink.captures.map((c) => c.label)).toEqual([
+      '00-first',
+      '99-before-navigation',
+    ]);
   });
 
   it('is idempotent on stop', async () => {

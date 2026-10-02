@@ -50,8 +50,32 @@ export function lifecycleEvent(
   name: string,
   loaderId: string,
   frameId = 'main',
+  timestamp = 1,
 ): void {
-  cdp.emit('Page.lifecycleEvent', { frameId, loaderId, name, timestamp: 1 });
+  cdp.emit('Page.lifecycleEvent', { frameId, loaderId, name, timestamp });
+}
+
+/** The page already shows a document when a source attaches. */
+export function showingDocument(
+  cdp: FakeCdpTransport,
+  loaderId: string,
+  url = `https://example.com/${loaderId}`,
+  frameId = 'main',
+): void {
+  cdp.respond('Page.getFrameTree', {
+    frameTree: { frame: { id: frameId, loaderId, url } },
+  } as never);
+}
+
+/**
+ * What Chromium does when lifecycle reporting is switched on: report the
+ * milestones the current document already reached, before answering.
+ */
+export function replayOnEnable(cdp: FakeCdpTransport, replay: () => void): void {
+  cdp.respond('Page.setLifecycleEventsEnabled', (params) => {
+    if ((params as { enabled: boolean }).enabled) replay();
+    return {} as never;
+  });
 }
 
 export function bindingCalled(
@@ -72,7 +96,7 @@ export function clickPayload(selector = 'a.link'): string {
       clientY: 20,
       boundingRect: { x: 0, y: 0, width: 100, height: 40 },
     },
-    timestamp: 1_700_000_000,
+    pageTimeMs: 1_700_000_000_000,
   };
   return JSON.stringify(payload);
 }

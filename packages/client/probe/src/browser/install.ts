@@ -152,7 +152,7 @@ export function installProbe(report: ProbeReporter): () => void {
     report({
       action,
       target,
-      timestamp: Date.now() / 1000,
+      pageTimeMs: Date.now(),
     });
   };
 

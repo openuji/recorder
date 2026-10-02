@@ -1,10 +1,4 @@
-import type {
-  CdpEventMeta,
-  CdpEventParams,
-  CdpTransport,
-  Detach,
-  Unsubscribe,
-} from '@openuji/cdp';
+import type { CdpEventParams, CdpTransport, Detach } from '@openuji/cdp';
 import {
   createPushStream,
   type LifecycleEvent,
@@ -12,7 +6,6 @@ import {
 } from '@openuji/core';
 
 type Frame = CdpEventParams<'Page.frameNavigated'>['frame'];
-type RawMilestone = CdpEventParams<'Page.lifecycleEvent'>;
 
 export interface LifecycleStreamHandle {
   events: AsyncIterable<LifecycleEvent>;
@@ -21,134 +14,75 @@ export interface LifecycleStreamHandle {
 }
 
 /**
- * Attaches the lifecycle source: navigation commits and lifecycle milestones,
+ * Attaches the lifecycle source: navigations and lifecycle milestones,
  * emitted synchronously from inside the CDP event handlers.
  *
- * Attaching runs in a fixed order:
- *  1. Read the frame tree, so the main frame is known before the first
- *     milestone arrives, and report the document already showing.
- *  2. Enable lifecycle reporting. Chromium first replays the milestones that
- *     document already reached; those are tagged `replayed`.
- *  3. Listen for live milestones.
+ * Only milestones that happen while we watch are reported — never the ones the
+ * page had already reached when we attached.
  */
 export async function attachLifecycle(
   cdp: CdpTransport,
   emit: (event: LifecycleEvent) => void,
 ): Promise<Detach> {
-  const page = trackPage();
+  let mainFrameId: string | null = null;
 
-  const milestones =
-    (replayed: boolean) =>
-    (raw: RawMilestone, { receivedAtMs }: CdpEventMeta): void => {
-      const event = page.milestone(raw, receivedAtMs, replayed);
-      if (event) emit(event);
-    };
-
-  const offCommits = cdp.on('Page.frameNavigated', ({ frame }, { receivedAtMs }) =>
-    emit(page.committed(frame, receivedAtMs)),
-  );
+  const offCommits = cdp.on('Page.frameNavigated', ({ frame }, { receivedAtMs }) => {
+    if (!frame.parentId) mainFrameId = frame.id;
+    emit(navigated(frame, receivedAtMs));
+  });
 
   try {
     await cdp.send('Page.enable');
 
+    // The document already showing, so the engine has one straight away. A
+    // fresh tab's `about:blank` is nobody's destination: its frame is the main
+    // frame, but it is not reported.
     const tree = await cdp.send('Page.getFrameTree').catch(() => null);
-    const current = page.adopt(tree?.frameTree?.frame, cdp.now());
-    if (current) emit(current);
+    const root = tree?.frameTree?.frame;
+    if (root) mainFrameId = root.id;
+    if (root && root.url !== 'about:blank') emit(navigated(root, cdp.now()));
 
-    // Chromium replays before it acknowledges, so the replay is exactly what
-    // arrives while the command is in flight. A live event racing into that
-    // one round trip (a navigation already under way) is tagged replayed too.
-    await during(
-      () => cdp.on('Page.lifecycleEvent', milestones(true)),
-      () => cdp.send('Page.setLifecycleEventsEnabled', { enabled: true }),
-    );
+    // Chromium answers this only after reporting every milestone the current
+    // document has already reached. Listening for milestones from here on keeps
+    // that report of the past out: rules arm on "the next frame after X", so X
+    // must be something we actually witnessed.
+    await cdp.send('Page.setLifecycleEventsEnabled', { enabled: true });
   } catch (err) {
     offCommits();
     throw err;
   }
 
-  const offLive = cdp.on('Page.lifecycleEvent', milestones(false));
+  const offMilestones = cdp.on('Page.lifecycleEvent', (raw, { receivedAtMs }) =>
+    emit({
+      type: 'milestone',
+      frameId: raw.frameId,
+      isMainFrame: raw.frameId === mainFrameId,
+      loaderId: raw.loaderId,
+      name: raw.name,
+      receivedAtMs,
+      monotonicTime: raw.timestamp,
+    }),
+  );
 
   return async () => {
     await cdp
       .send('Page.setLifecycleEventsEnabled', { enabled: false })
       .catch(() => {});
     offCommits();
-    offLive();
+    offMilestones();
   };
 }
 
-/**
- * What the source knows about the page, and how raw CDP events become
- * lifecycle events given that knowledge. No I/O, no clock.
- */
-function trackPage() {
-  let mainFrameId: string | null = null;
-  /** A fresh tab's blank start page: nobody navigated to it, so it is silenced. */
-  let blankLoaderId: string | null = null;
-
-  const committed = (frame: Frame, receivedAtMs: number): LifecycleEvent => {
-    if (!frame.parentId) mainFrameId = frame.id;
-
-    return {
-      type: 'committed',
-      frameId: frame.id,
-      isMainFrame: !frame.parentId,
-      loaderId: frame.loaderId,
-      url: frame.url,
-      receivedAtMs,
-    };
-  };
-
+/** A frame showing a new document, as a lifecycle event. Pure. */
+function navigated(frame: Frame, receivedAtMs: number): LifecycleEvent {
   return {
-    committed,
-
-    /**
-     * Takes over the root frame showing at attach. Returns its commit, so the
-     * engine has a current document straight away — or `null` for a blank
-     * start page.
-     */
-    adopt(root: Frame | undefined, receivedAtMs: number): LifecycleEvent | null {
-      if (!root) return null;
-      if (root.url !== 'about:blank') return committed(root, receivedAtMs);
-
-      mainFrameId = root.id;
-      blankLoaderId = root.loaderId;
-      return null;
-    },
-
-    milestone(
-      raw: RawMilestone,
-      receivedAtMs: number,
-      replayed: boolean,
-    ): LifecycleEvent | null {
-      if (raw.loaderId === blankLoaderId) return null;
-
-      return {
-        type: 'milestone',
-        frameId: raw.frameId,
-        isMainFrame: raw.frameId === mainFrameId,
-        loaderId: raw.loaderId,
-        name: raw.name,
-        receivedAtMs,
-        monotonicTime: raw.timestamp,
-        replayed,
-      };
-    },
+    type: 'navigated',
+    frameId: frame.id,
+    isMainFrame: !frame.parentId,
+    loaderId: frame.loaderId,
+    url: frame.url,
+    receivedAtMs,
   };
-}
-
-/** Holds a subscription for exactly as long as `command` is in flight. */
-async function during(
-  subscribe: () => Unsubscribe,
-  command: () => Promise<unknown>,
-): Promise<void> {
-  const unsubscribe = subscribe();
-  try {
-    await command();
-  } finally {
-    unsubscribe();
-  }
 }
 
 /**

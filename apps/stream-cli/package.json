@@ -7,10 +7,10 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc --build",
-    "uxr-stream-compositor": "pnpm run build && ./dist/compositor.js",
-    "uxr-stream-lifecycle": "pnpm run build &&  ./dist/lifecycle.js",
-    "uxr-stream-interaction": "pnpm run build && ./dist/interaction.js",
-    "uxr-stream-fused": "pnpm run build && ./dist/fused.js"
+    "uxr-stream-compositor": "pnpm run build && node dist/compositor.js",
+    "uxr-stream-lifecycle": "pnpm run build && node dist/lifecycle.js",
+    "uxr-stream-interaction": "pnpm run build && node dist/interaction.js",
+    "uxr-stream-fused": "pnpm run build && node dist/fused.js"
   },
   "dependencies": {
     "@openuji/cli-kit": "workspace:*",

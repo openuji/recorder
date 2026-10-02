@@ -14,7 +14,8 @@ export * from './before-navigation.js';
  * Document-lifecycle rules, in label order.
  *
  * Every rule here is one-shot per document and scoped to its `loaderId`: the
- * engine re-initializes all of them when a new main-frame document commits.
+ * engine re-initializes all of them when the main frame navigates to a new
+ * document.
  */
 export const defaultDocumentRules: readonly MilestoneRule[] = [
   FirstFrameRule,

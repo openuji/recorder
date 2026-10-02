@@ -49,8 +49,9 @@ export interface FusedStreamHandle {
  *     frame before this click". Any per-stream buffering, priority, or
  *     round-robin merge would silently capture different moments.
  *
- * The sources are the same `attach*` functions the standalone streams run, so a
- * source watched in isolation behaves exactly as it does here.
+ * The sources are the same `attach*` functions the standalone streams run, and
+ * what they emit already are domain events, so a source watched in isolation
+ * yields exactly what it feeds the engine here.
  */
 export async function createFusedStream(
   cdp: CdpTransport,
@@ -66,51 +67,16 @@ export async function createFusedStream(
     },
   });
 
+  // Lifecycle and interaction events already are domain events; only a
+  // compositor frame, which is also the payload captures carry, gets tagged.
   const attached = await Promise.allSettled([
     attachCompositor(
       cdp,
       (frame) => stream.push({ type: 'frame', frame }),
       screencast,
     ),
-
-    attachLifecycle(cdp, (event) => {
-      if (event.type === 'committed') {
-        stream.push({
-          type: 'committed',
-          frameId: event.frameId,
-          isMainFrame: event.isMainFrame,
-          loaderId: event.loaderId,
-          url: event.url,
-          receivedAtMs: event.receivedAtMs,
-        });
-        return;
-      }
-
-      // A replayed milestone is the attached document's past, not something
-      // that just happened. Rules arm on "capture the next frame after X";
-      // fed a replay, they would label the first frames after attaching as
-      // `01-domcontentloaded` / `02-settled`.
-      if (event.replayed) return;
-
-      stream.push({
-        type: 'lifecycle',
-        frameId: event.frameId,
-        loaderId: event.loaderId,
-        name: event.name,
-        receivedAtMs: event.receivedAtMs,
-        monotonicTime: event.monotonicTime,
-      });
-    }),
-
-    attachInteraction(cdp, (event) =>
-      stream.push({
-        type: 'interaction',
-        action: event.action,
-        target: event.target,
-        receivedAtMs: event.receivedAtMs,
-        pageTimeMs: event.pageTimeMs,
-      }),
-    ),
+    attachLifecycle(cdp, stream.push),
+    attachInteraction(cdp, stream.push),
   ]);
 
   const detaches: Detach[] = attached.flatMap((result) =>

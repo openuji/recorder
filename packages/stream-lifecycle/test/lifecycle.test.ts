@@ -10,13 +10,12 @@ import {
   showingDocument,
 } from '../../cdp/test/events.js';
 
-/** Compact view: what happened, to whom, and whether it was replayed. */
+/** Compact view: what happened, and to which frame. */
 function summarize(events: readonly LifecycleEvent[]): string[] {
-  return events.map((e) =>
-    e.type === 'committed'
-      ? `committed ${e.loaderId} ${e.isMainFrame ? 'main' : 'sub'}`
-      : `${e.name} ${e.loaderId} ${e.isMainFrame ? 'main' : 'sub'}` +
-        (e.replayed ? ' replayed' : ''),
+  return events.map(
+    (e) =>
+      `${e.type === 'milestone' ? e.name : e.type} ${e.loaderId} ` +
+      (e.isMainFrame ? 'main' : 'sub'),
   );
 }
 
@@ -43,14 +42,14 @@ describe('createLifecycleStream (standalone)', () => {
     await stop();
 
     expect(summarize(await collect(events))).toEqual([
-      'committed loader-a main',
-      'committed loader-sub sub',
+      'navigated loader-a main',
+      'navigated loader-sub sub',
       'DOMContentLoaded loader-a main',
       'load loader-sub sub',
     ]);
   });
 
-  it('bootstraps a loaded page, then tags its replayed milestones as main-frame replays', async () => {
+  it("reports a loaded page's document, but not the milestones it had already reached", async () => {
     const cdp = createFakeCdpTransport();
     showingDocument(cdp, 'loader-now');
     replayOnEnable(cdp, () => {
@@ -64,15 +63,12 @@ describe('createLifecycleStream (standalone)', () => {
     await stop();
 
     expect(summarize(await collect(events))).toEqual([
-      'committed loader-now main',
-      'commit loader-now main replayed',
-      'DOMContentLoaded loader-now main replayed',
-      'networkAlmostIdle loader-now main replayed',
+      'navigated loader-now main',
       'networkIdle loader-now main',
     ]);
   });
 
-  it("silences the initial about:blank document, replay and all, but not what comes next", async () => {
+  it("does not report a fresh tab's about:blank, but knows its frame is the main one", async () => {
     const cdp = createFakeCdpTransport();
     showingDocument(cdp, 'blank', 'about:blank');
     replayOnEnable(cdp, () => {
@@ -81,7 +77,7 @@ describe('createLifecycleStream (standalone)', () => {
     });
 
     const { events, stop } = await createLifecycleStream(cdp);
-    lifecycleEvent(cdp, 'networkIdle', 'blank'); // late, still the blank document
+    // `init` of the navigation away arrives before `navigated`.
     lifecycleEvent(cdp, 'init', 'loader-a');
     frameNavigated(cdp, 'loader-a');
     lifecycleEvent(cdp, 'DOMContentLoaded', 'loader-a');
@@ -89,7 +85,7 @@ describe('createLifecycleStream (standalone)', () => {
 
     expect(summarize(await collect(events))).toEqual([
       'init loader-a main',
-      'committed loader-a main',
+      'navigated loader-a main',
       'DOMContentLoaded loader-a main',
     ]);
   });
@@ -106,10 +102,10 @@ describe('createLifecycleStream (standalone)', () => {
     await stop();
 
     expect(await collect(events)).toMatchObject([
-      // The bootstrap commit comes from a command response, not an event: it
-      // is stamped with the transport's clock at attach.
-      { type: 'committed', loaderId: 'loader-now', receivedAtMs: 1_000 },
-      { type: 'committed', loaderId: 'loader-a', receivedAtMs: 1_050 },
+      // The document showing at attach comes from a command response, not an
+      // event: it is stamped with the transport's clock at attach.
+      { type: 'navigated', loaderId: 'loader-now', receivedAtMs: 1_000 },
+      { type: 'navigated', loaderId: 'loader-a', receivedAtMs: 1_050 },
       { type: 'milestone', receivedAtMs: 1_075, monotonicTime: 405_123.25 },
     ]);
   });

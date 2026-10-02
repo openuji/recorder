@@ -8,7 +8,7 @@ import {
   type MilestoneRule,
 } from '@openuji/engine';
 import { defaultDocumentRules } from '@openuji/rules-document';
-import { committed, frameEvent, lifecycle } from './helpers.js';
+import { navigated, frameEvent, milestone } from './helpers.js';
 
 /** Records every event it is shown, so we can assert on engine dispatch. */
 function spyRule(id: string): MilestoneRule<string[]> & { seen: string[][] } {
@@ -51,22 +51,22 @@ describe('reduce', () => {
   it('assigns incrementing document ids across navigations', () => {
     const engine = new RulesEngine(defaultDocumentRules);
 
-    engine.processEvent(committed('loader-a'));
+    engine.processEvent(navigated('loader-a'));
     expect(engine.currentState.currentDocument?.id).toBe(1);
 
-    engine.processEvent(committed('loader-b'));
+    engine.processEvent(navigated('loader-b'));
     expect(engine.currentState.currentDocument?.id).toBe(2);
   });
 
   it('keeps document identity and rule state across a same-loader redirect', () => {
     const engine = new RulesEngine(defaultDocumentRules);
 
-    engine.processEvent(committed('loader-a', 'https://example.com/one'));
+    engine.processEvent(navigated('loader-a', 'https://example.com/one'));
     const first = engine.processEvent(frameEvent());
     expect(first.map((c) => c.label)).toEqual(['00-first']);
 
     // Same loaderId: a URL update, not a new document.
-    engine.processEvent(committed('loader-a', 'https://example.com/two'));
+    engine.processEvent(navigated('loader-a', 'https://example.com/two'));
     expect(engine.currentState.currentDocument?.id).toBe(1);
     expect(engine.currentState.currentDocument?.url).toBe(
       'https://example.com/two',
@@ -79,23 +79,23 @@ describe('reduce', () => {
   it('resets rule state for each new document', () => {
     const engine = new RulesEngine(defaultDocumentRules);
 
-    engine.processEvent(committed('loader-a'));
+    engine.processEvent(navigated('loader-a'));
     expect(engine.processEvent(frameEvent()).map((c) => c.label)).toEqual([
       '00-first',
     ]);
 
-    engine.processEvent(committed('loader-b'));
+    engine.processEvent(navigated('loader-b'));
     const captures = engine.processEvent(frameEvent());
     expect(captures.map((c) => c.label)).toEqual(['00-first']);
     expect(captures[0]?.documentId).toBe(2);
   });
 
-  it('does not replay the commit event into freshly initialized rules', () => {
+  it('does not pass the navigation that created a document to its fresh rules', () => {
     const spy = spyRule('spy');
 
-    run([committed('loader-a'), frameEvent()], [spy]);
+    run([navigated('loader-a'), frameEvent()], [spy]);
 
-    // One init for the document; the commit that created it is not dispatched.
+    // One init for the document; the navigation that created it is not dispatched.
     expect(spy.seen).toHaveLength(1);
     expect(spy.seen[0]).toEqual(['frame']);
   });
@@ -104,7 +104,7 @@ describe('reduce', () => {
     const spy = spyRule('spy');
 
     run(
-      [committed('loader-a'), frameEvent(), committed('loader-b')],
+      [navigated('loader-a'), frameEvent(), navigated('loader-b')],
       [spy],
     );
 
@@ -141,13 +141,13 @@ describe('reduce', () => {
     };
 
     const engine = new RulesEngine([onceOnExit]);
-    engine.processEvent(committed('loader-a'));
+    engine.processEvent(navigated('loader-a'));
     engine.processEvent(frameEvent());
 
-    const captures = engine.processEvent(committed('loader-b'));
+    const captures = engine.processEvent(navigated('loader-b'));
 
     expect(exitEvaluations).toBe(1);
-    // Captures from the departing document are returned by the commit that
+    // Captures from the departing document are returned by the navigation that
     // replaced it, and they carry the departing document's identity.
     expect(captures.map((c) => c.label)).toEqual(['exit']);
     expect(captures[0]?.documentId).toBe(1);
@@ -171,11 +171,11 @@ describe('document lifecycle rules', () => {
   it('captures the frame after a milestone, not the milestone itself', () => {
     const captures = run(
       [
-        committed('loader-a'),
+        navigated('loader-a'),
         frameEvent(),
-        lifecycle('DOMContentLoaded', 'loader-a'),
+        milestone('DOMContentLoaded', 'loader-a'),
         frameEvent(),
-        lifecycle('networkAlmostIdle', 'loader-a'),
+        milestone('networkAlmostIdle', 'loader-a'),
         frameEvent(),
       ],
       defaultDocumentRules,
@@ -191,9 +191,9 @@ describe('document lifecycle rules', () => {
   it('ignores lifecycle events belonging to another loader', () => {
     const captures = run(
       [
-        committed('loader-a'),
+        navigated('loader-a'),
         frameEvent(),
-        lifecycle('DOMContentLoaded', 'some-subframe-loader'),
+        milestone('DOMContentLoaded', 'some-subframe-loader'),
         frameEvent(),
       ],
       defaultDocumentRules,
@@ -205,9 +205,9 @@ describe('document lifecycle rules', () => {
   it('captures the departing frame exactly once on navigation', () => {
     const captures = run(
       [
-        committed('loader-a'),
+        navigated('loader-a'),
         frameEvent({ scrollY: 500 }),
-        committed('loader-b'),
+        navigated('loader-b'),
         frameEvent(),
       ],
       defaultDocumentRules,
@@ -224,7 +224,7 @@ describe('document lifecycle rules', () => {
 
   it('captures the final resting state on stop', () => {
     const captures = run(
-      [committed('loader-a'), frameEvent({ scrollY: 120 }), { type: 'stop' }],
+      [navigated('loader-a'), frameEvent({ scrollY: 120 }), { type: 'stop' }],
       defaultDocumentRules,
     );
 

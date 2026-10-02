@@ -31,7 +31,7 @@ export interface RuleResult<TState> {
 export interface MilestoneRule<TState = unknown> {
   readonly id: string;
 
-  /** Build fresh state for a newly committed document. */
+  /** Build fresh state for a document the main frame just navigated to. */
   init(doc: DocumentState): TState;
 
   /** Pure evaluation of a domain event against current state. */

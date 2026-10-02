@@ -2,6 +2,8 @@ packages:
   - 'packages/*'
   - 'packages/client/*'
   - 'apps/*'
+  # The website is its own npm project (and its own repo), not a workspace member.
+  - '!apps/web'
 
 # esbuild's postinstall fetches its platform-native binary; the client tier
 # bundles through it.

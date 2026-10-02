@@ -37,15 +37,25 @@ export type CompositorFrame = Readonly<{
   swapTimeMs?: number;
 }>;
 
+/** What the lifecycle source emits — straight into the fused stream. */
 export type LifecycleEvent =
+  /**
+   * A frame now shows a new document: CDP `Page.frameNavigated`, or the
+   * document already showing when the source attached. `loaderId` is the
+   * document's identity.
+   */
   | Readonly<{
-      type: 'committed';
+      type: 'navigated';
       frameId: string;
       isMainFrame: boolean;
       loaderId: string;
       url: string;
       receivedAtMs: number;
     }>
+  /**
+   * Chromium's progress report about a document: CDP `Page.lifecycleEvent`.
+   * Its `commit` milestone is one of these; a new document is `navigated`.
+   */
   | Readonly<{
       type: 'milestone';
       frameId: string;
@@ -64,15 +74,11 @@ export type LifecycleEvent =
         | (string & {});
       receivedAtMs: number;
       monotonicTime: number;
-      /**
-       * Reported by Chromium as the document's current state when lifecycle
-       * reporting was enabled — not as it happened. A snapshot of the past, so
-       * never a live arming signal.
-       */
-      replayed: boolean;
     }>;
 
+/** What the interaction source emits — straight into the fused stream. */
 export type InteractionEvent = Readonly<{
+  type: 'interaction';
   action: InteractionAction;
   target: TargetElementMeta;
   receivedAtMs: number;
@@ -87,33 +93,17 @@ export type DocumentState = Readonly<{
   lastFrame: CompositorFrame | null;
 }>;
 
+/**
+ * Everything the rules engine sees: the sources' events exactly as they emit
+ * them, compositor frames tagged for the queue, and two events the engine and
+ * recorder synthesize themselves.
+ */
 export type DomainEvent =
-  | Readonly<{
-      type: 'committed';
-      frameId: string;
-      isMainFrame: boolean;
-      loaderId: string;
-      url: string;
-      receivedAtMs: number;
-    }>
-  | Readonly<{
-      type: 'lifecycle';
-      frameId: string;
-      loaderId: string;
-      name: string;
-      receivedAtMs: number;
-      monotonicTime: number;
-    }>
+  | LifecycleEvent
+  | InteractionEvent
   | Readonly<{
       type: 'frame';
       frame: CompositorFrame;
-    }>
-  | Readonly<{
-      type: 'interaction';
-      action: InteractionAction;
-      target: TargetElementMeta;
-      receivedAtMs: number;
-      pageTimeMs: number;
     }>
   /**
    * Synthesized by the rules engine — never produced by a stream. Emitted to
@@ -127,7 +117,7 @@ export type DomainEvent =
       url: string;
       nextLoaderId: string;
       nextUrl: string;
-      /** Taken from the commit that replaced the document. */
+      /** Taken from the navigation that replaced the document. */
       receivedAtMs: number;
     }>
   | Readonly<{

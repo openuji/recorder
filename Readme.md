@@ -76,12 +76,10 @@ Never subtract one clock from another.
 
 ### Attaching to a page that already has a document
 
-The lifecycle source reads the frame tree before enabling lifecycle reporting,
-so Chromium's immediate replay of the current document's milestones is
-attributed to the right frame. Replayed milestones are tagged `replayed`: the
-standalone stream shows them, the fused stream drops them — they describe the
-past, and rules must only arm on live signals. The initial `about:blank` of a
-fresh page is ignored entirely.
+Enabling lifecycle reporting makes Chromium first report every milestone the
+current document has already reached. The lifecycle source starts listening
+only after that, so rules never arm on a past milestone — attaching to a loaded
+page yields `00-first`, not a stale `01-domcontentloaded`.
 
 ---
 
@@ -93,7 +91,7 @@ fresh page is ignored entirely.
 | `@openuji/cdp` | The `CdpTransport` contract every host implements, the `RecordingTarget` a host hands out, an event router for hosts with one generic event callback, and a fake transport for tests. Isomorphic. |
 | `@openuji/client-probe` | The in-page DOM probe: an `installProbe(report)` core plus the CDP-binding entry, bundled by esbuild into an injectable IIFE source string. |
 | `@openuji/stream-compositor` | CDP screencast frames. |
-| `@openuji/stream-lifecycle` | CDP navigation commits and paint milestones. |
+| `@openuji/stream-lifecycle` | Navigations (`navigated`) and Chromium's lifecycle milestones (`milestone`). |
 | `@openuji/stream-interaction` | Installs the probe, decodes its binding callbacks. |
 | `@openuji/fused` | Orchestrator: three sources on one transport, one ordered `DomainEvent` stream; `startRecording` runs it through the engine into sinks. |
 | `@openuji/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper. |
@@ -127,8 +125,9 @@ They share one interface and nothing else, which is why they are separate
 packages:
 
 - **Document rules** fire at most once per document, are scoped to a `loaderId`,
-  and are re-initialized whenever a new main-frame document commits. Adding or
-  removing a milestone is an entry in an array — see `lifecycleMilestoneRule`.
+  and are re-initialized whenever the main frame navigates to a new document.
+  Adding or removing a milestone is an entry in an array — see
+  `lifecycleMilestoneRule`.
 - **Interaction rules** repeat within a document, number each episode, and tag
   every capture with what the user touched. `scrollLifecycleRule` is a signal
   processor over frame deltas, with tunable thresholds.
@@ -151,7 +150,7 @@ runners live in `apps/stream-cli`:
 
 ```bash
 pnpm dev:compositor  https://my.fu-berlin.de/   # frame index, latency, scroll offset
-pnpm dev:lifecycle   https://my.fu-berlin.de/   # commits, loaderIds, milestones
+pnpm dev:lifecycle   https://my.fu-berlin.de/   # navigations, loaderIds, milestones
 pnpm dev:interaction https://my.fu-berlin.de/   # clicks and scrollend with DOM metadata
 pnpm dev:fused       https://my.fu-berlin.de/   # full detection pipeline, zero disk I/O
 ```

@@ -33,6 +33,7 @@ export function decodeProbePayload(
   if (typeof payload !== 'object' || payload === null) return null;
 
   return {
+    type: 'interaction',
     action: payload.action,
     target: payload.target,
     receivedAtMs,

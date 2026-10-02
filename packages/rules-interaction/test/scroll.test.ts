@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { DomainEvent, MilestoneCapture } from '@openuji/core';
 import { RulesEngine } from '@openuji/engine';
 import { SCROLL_DEFAULTS, scrollLifecycleRule } from '@openuji/rules-interaction';
-import { committed, frameEvent, scrollEnd } from '../../engine/test/helpers.js';
+import { navigated, frameEvent, scrollEnd } from '../../engine/test/helpers.js';
 
 function run(events: readonly DomainEvent[]): MilestoneCapture[] {
   const engine = new RulesEngine([scrollLifecycleRule()]);
@@ -17,7 +17,7 @@ function stationary(scrollY: number, count: number): DomainEvent[] {
 describe('scrollLifecycleRule', () => {
   it('ignores jitter below the intentional-scroll threshold', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: SCROLL_DEFAULTS.minIntentionalScrollPx - 1 }),
@@ -29,7 +29,7 @@ describe('scrollLifecycleRule', () => {
 
   it('captures the resting frame before an episode and the settled frame after', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 300 }),
@@ -48,7 +48,7 @@ describe('scrollLifecycleRule', () => {
 
   it('does not settle before the stationary-frame count is reached', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 400 }),
@@ -60,7 +60,7 @@ describe('scrollLifecycleRule', () => {
 
   it('treats a mid-fling pause shorter than the hysteresis as one episode', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 200 }),
@@ -77,7 +77,7 @@ describe('scrollLifecycleRule', () => {
 
   it('settles immediately on the authoritative DOM scrollend', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 250 }),
@@ -93,7 +93,7 @@ describe('scrollLifecycleRule', () => {
 
   it('emits one post-scroll per episode even when both signals arrive', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 250 }),
@@ -106,7 +106,7 @@ describe('scrollLifecycleRule', () => {
 
   it('numbers successive episodes', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 300 }),
@@ -130,7 +130,7 @@ describe('scrollLifecycleRule', () => {
     ]);
 
     const captures = [
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 0 }),
       frameEvent({ scrollY: 300 }), // below the raised threshold

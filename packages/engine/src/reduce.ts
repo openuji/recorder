@@ -77,7 +77,7 @@ export function reduce(
   let working = state;
   const exitCaptures: MilestoneCapture[] = [];
 
-  if (event.type === 'committed' && event.isMainFrame) {
+  if (event.type === 'navigated' && event.isMainFrame) {
     const current = working.currentDocument;
 
     if (current && current.loaderId === event.loaderId) {
@@ -118,9 +118,9 @@ export function reduce(
         lastFrame: null,
       };
 
-      // The commit that created this document is deliberately not replayed into
-      // the freshly initialized rules; they start from the document, not from
-      // the event that produced it.
+      // The navigation that created this document is deliberately not passed
+      // to the freshly initialized rules; they start from the document, not
+      // from the event that produced it.
       return {
         state: {
           mainFrameId: event.frameId,

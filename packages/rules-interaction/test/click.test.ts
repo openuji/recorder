@@ -4,7 +4,7 @@ import { RulesEngine, type MilestoneRule } from '@openuji/engine';
 import { ClickEpisodeRule } from '@openuji/rules-interaction';
 import {
   click,
-  committed,
+  navigated,
   frameEvent,
 } from '../../engine/test/helpers.js';
 
@@ -23,7 +23,7 @@ function episodeOf(label: string): string {
 describe('ClickEpisodeRule', () => {
   it('pairs a pre- and post-click capture around each click', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent(),
       click('button#go'),
       frameEvent(),
@@ -37,7 +37,7 @@ describe('ClickEpisodeRule', () => {
 
   it('numbers successive clicks independently', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent(),
       click(),
       frameEvent(),
@@ -60,7 +60,7 @@ describe('ClickEpisodeRule', () => {
    */
   it('keeps pre/post episode numbers paired after a click with no prior frame', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       click('a#early'), // no frame seen yet: nothing to show as "before"
       frameEvent(),
       click('a#later'),
@@ -82,7 +82,7 @@ describe('ClickEpisodeRule', () => {
 
   it('captures the resting frame before the click and the response after it', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent({ scrollY: 10 }),
       click(),
       frameEvent({ scrollY: 99 }),
@@ -94,7 +94,7 @@ describe('ClickEpisodeRule', () => {
 
   it('carries DOM target metadata on both captures', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent(),
       click('button.primary'),
       frameEvent(),
@@ -108,7 +108,7 @@ describe('ClickEpisodeRule', () => {
 
   it('fires post-click only once per click', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent(),
       click(),
       frameEvent(),
@@ -121,11 +121,11 @@ describe('ClickEpisodeRule', () => {
 
   it('restarts numbering for a new document', () => {
     const captures = run([
-      committed('loader-a'),
+      navigated('loader-a'),
       frameEvent(),
       click(),
       frameEvent(),
-      committed('loader-b'),
+      navigated('loader-b'),
       frameEvent(),
       click(),
       frameEvent(),

@@ -23,9 +23,9 @@ export function frameEvent(overrides: Partial<CompositorFrame> = {}): DomainEven
   return { type: 'frame', frame: frame(overrides) };
 }
 
-export function committed(loaderId: string, url = `https://example.com/${loaderId}`): DomainEvent {
+export function navigated(loaderId: string, url = `https://example.com/${loaderId}`): DomainEvent {
   return {
-    type: 'committed',
+    type: 'navigated',
     frameId: 'main',
     isMainFrame: true,
     loaderId,
@@ -34,10 +34,11 @@ export function committed(loaderId: string, url = `https://example.com/${loaderI
   };
 }
 
-export function lifecycle(name: string, loaderId: string): DomainEvent {
+export function milestone(name: string, loaderId: string): DomainEvent {
   return {
-    type: 'lifecycle',
+    type: 'milestone',
     frameId: 'main',
+    isMainFrame: true,
     loaderId,
     name,
     receivedAtMs: 0,

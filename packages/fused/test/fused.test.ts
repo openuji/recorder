@@ -32,17 +32,17 @@ describe('createFusedStream', () => {
     await stop();
 
     expect((await collect(events)).map((e) => e.type)).toEqual([
-      'committed',
+      'navigated',
       'frame',
-      'lifecycle',
+      'milestone',
       'interaction',
       'frame',
-      'lifecycle',
+      'milestone',
       'frame',
     ]);
   });
 
-  it("drops a loaded page's replayed milestones but keeps its live ones", async () => {
+  it('passes on what a loaded page does next, not what it had already reached', async () => {
     const cdp = createFakeCdpTransport();
     showingDocument(cdp, 'loader-now');
     replayOnEnable(cdp, () => {
@@ -58,9 +58,9 @@ describe('createFusedStream', () => {
 
     expect(
       (await collect(events)).map((e) =>
-        e.type === 'lifecycle' ? `lifecycle ${e.name}` : e.type,
+        e.type === 'milestone' ? `milestone ${e.name}` : e.type,
       ),
-    ).toEqual(['committed', 'lifecycle networkIdle']);
+    ).toEqual(['navigated', 'milestone networkIdle']);
   });
 
   it('attaches all three sources to the one transport it was given', async () => {

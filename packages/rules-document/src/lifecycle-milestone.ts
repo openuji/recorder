@@ -39,7 +39,7 @@ export function lifecycleMilestoneRule({
     id,
     init: () => ({ armed: false, fired: false }),
     evaluate: (state, event, { currentDocument, currentFrame }) => {
-      if (event.type === 'lifecycle') {
+      if (event.type === 'milestone') {
         if (
           event.name !== milestone ||
           event.loaderId !== currentDocument.loaderId ||

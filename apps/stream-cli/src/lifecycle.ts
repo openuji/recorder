@@ -35,9 +35,9 @@ runMain(async () => {
             `loader: ${event.loaderId.slice(0, 8)}`;
           const received = elapsed(event.receivedAtMs - baseline);
 
-          if (event.type === 'committed') {
+          if (event.type === 'navigated') {
             console.log(
-              `\x1b[32m${scope} COMMITTED${RESET} | ${ids} | ${received} | ` +
+              `\x1b[32m${scope} NAVIGATED${RESET} | ${ids} | ${received} | ` +
                 `url: ${event.url}`,
             );
             continue;
@@ -52,10 +52,9 @@ runMain(async () => {
           const isDom =
             event.name === 'DOMContentLoaded' || event.name === 'load';
           const color = isPaint ? '\x1b[33m' : isDom ? '\x1b[36m' : '\x1b[90m';
-          const name = event.replayed ? `${event.name} (replayed)` : event.name;
 
           console.log(
-            `${color}${scope} MILESTONE: ${name.padEnd(29, ' ')}${RESET} | ` +
+            `${color}${scope} MILESTONE: ${event.name.padEnd(29, ' ')}${RESET} | ` +
               `${ids} | ${received} | chrome ${chrome}`,
           );
         }

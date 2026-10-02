@@ -88,9 +88,9 @@ describe('startRecording', () => {
     await settle();
     await recording.stop();
 
-    // Without the replay filter these frames would also be labelled
-    // `01-domcontentloaded` and `02-settled`, moments that happened before the
-    // recording started.
+    // Were Chromium's report of past milestones let through, these frames would
+    // also be labelled `01-domcontentloaded` and `02-settled` — moments that
+    // happened before the recording started.
     expect(sink.captures.map((c) => c.label)).toEqual([
       '00-first',
       '99-before-navigation',

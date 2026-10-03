@@ -12,7 +12,7 @@
     { "path": "./packages/stream-interaction" },
     { "path": "./packages/fused" },
     { "path": "./packages/sinks" },
-    { "path": "./packages/host-playwright" },
+    { "path": "./packages/host-puppeteer" },
     { "path": "./packages/cli-kit" },
     { "path": "./apps/stream-cli" },
     { "path": "./apps/recorder" }

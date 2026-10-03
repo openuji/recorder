@@ -1,6 +1,6 @@
 import type { MilestoneCapture, TargetElementMeta } from '@openuji/core';
 import { unchanged, type MilestoneRule } from '@openuji/engine';
-import { episodeLabel } from './episode.js';
+import { episodeLabel, InteractionLabel } from './episode.js';
 
 export type ClickEpisodeState = Readonly<{
   /** Clicks seen so far in this document. */
@@ -38,7 +38,7 @@ export const ClickEpisodeRule: MilestoneRule<ClickEpisodeState> = {
               documentId: currentDocument.id,
               loaderId: currentDocument.loaderId,
               url: currentDocument.url,
-              label: episodeLabel('10-pre-click', episode),
+              label: episodeLabel(InteractionLabel.preClick, episode),
               frame: lastFrame,
               detail: `Pre-click state on <${target.selector}> "${target.textSnippet ?? ''}"`,
               domTarget: target,
@@ -66,7 +66,7 @@ export const ClickEpisodeRule: MilestoneRule<ClickEpisodeState> = {
             documentId: currentDocument.id,
             loaderId: currentDocument.loaderId,
             url: currentDocument.url,
-            label: episodeLabel('11-post-click', state.pendingEpisode),
+            label: episodeLabel(InteractionLabel.postClick, state.pendingEpisode),
             frame: currentFrame,
             detail: `Compositor response after clicking <${target.selector}>`,
             domTarget: target,

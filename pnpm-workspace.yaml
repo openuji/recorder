@@ -6,6 +6,8 @@ packages:
   - '!apps/web'
 
 # esbuild's postinstall fetches its platform-native binary; the client tier
-# bundles through it.
+# bundles through it. Puppeteer's downloads the Chrome for Testing build it is
+# pinned to.
 allowBuilds:
   esbuild: true
+  puppeteer: true

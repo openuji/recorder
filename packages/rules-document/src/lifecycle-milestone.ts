@@ -1,4 +1,5 @@
 import { unchanged, type MilestoneRule } from '@openuji/engine';
+import { DocumentLabel } from './labels.js';
 
 export type LifecycleMilestoneState = Readonly<{
   /** A matching lifecycle notification arrived; capture the next frame. */
@@ -75,7 +76,7 @@ export function lifecycleMilestoneRule({
 export const DomContentLoadedRule = lifecycleMilestoneRule({
   id: 'lifecycle-domcontentloaded',
   milestone: 'DOMContentLoaded',
-  label: '01-domcontentloaded',
+  label: DocumentLabel.domContentLoaded,
   detail: 'Compositor frame following DOMContentLoaded',
 });
 
@@ -83,7 +84,7 @@ export const DomContentLoadedRule = lifecycleMilestoneRule({
 export const NetworkAlmostIdleRule = lifecycleMilestoneRule({
   id: 'lifecycle-network-almost-idle',
   milestone: 'networkAlmostIdle',
-  label: '02-settled',
+  label: DocumentLabel.settled,
   detail: 'Compositor frame following networkAlmostIdle',
 });
 
@@ -96,6 +97,6 @@ export const NetworkAlmostIdleRule = lifecycleMilestoneRule({
 export const LoadRule = lifecycleMilestoneRule({
   id: 'lifecycle-load',
   milestone: 'load',
-  label: '02-load',
+  label: DocumentLabel.load,
   detail: 'Compositor frame following page load',
 });

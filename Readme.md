@@ -37,14 +37,14 @@ Set `UXR_HEADLESS=1` to run without a visible browser window.
 
 ```
 [ Host ] ──► CdpTransport ──┬─► [ 1. Compositor  ] ──┐
- Playwright today;          ├─► [ 2. Lifecycle   ] ──┼──► [ Fused Stream ] ──► [ Rules Engine ] ──► [ Sinks ]
+ Puppeteer today;           ├─► [ 2. Lifecycle   ] ──┼──► [ Fused Stream ] ──► [ Rules Engine ] ──► [ Sinks ]
  extension, Electron next   └─► [ 3. Interaction ] ──┘      (one FIFO)         (pure reducer)     (console,
                                                                                                  persistence)
 ```
 
 The app exists to bring **three independent asynchronous streams** together.
 Everything right of the host is runtime-agnostic: it sees only a
-`CdpTransport` (`send` + `on`), never Playwright, and compiles without Node
+`CdpTransport` (`send` + `on`), never a host API, and compiles without Node
 types, so the same pipeline can run in Node, Electron's main process, or an
 extension service worker. Four properties make it work, and changes must
 preserve them:
@@ -98,7 +98,7 @@ page yields `00-first`, not a stale `01-domcontentloaded`.
 | `@openuji/rules-document` | One-shot, `loaderId`-scoped rules, re-initialized per document. |
 | `@openuji/rules-interaction` | Repeating numbered episodes carrying DOM target metadata. |
 | `@openuji/sinks` | Optional capture destinations: console and PNG + NDJSON persistence. |
-| `@openuji/host-playwright` | Playwright-launched Chromium as a host: `launchPlaywrightTarget()`. The only library package that depends on Playwright. |
+| `@openuji/host-puppeteer` | Puppeteer-launched Chrome for Testing as a host: `launchPuppeteerTarget()`. The only library package that depends on Puppeteer. |
 | `@openuji/cli-kit` | Shared launch, navigation and shutdown scaffolding for the Node CLIs. |
 | `@openuji/stream-cli` | Dev runners: each source on its own, and the fused detection pipeline. |
 | `@openuji/recorder` | The end-to-end session and its CLI. |
@@ -114,7 +114,7 @@ the very same `attach*`, so what a source does in isolation is exactly what it
 feeds the fused stream.
 
 ```ts
-const target = await launchPlaywrightTarget();          // or any other host
+const target = await launchPuppeteerTarget();           // or any other host
 const { events, stop } = await createLifecycleStream(target.cdp);   // one source
 const recording = await startRecording(target.cdp, { sinks });      // whole pipeline
 ```
@@ -132,6 +132,29 @@ packages:
   every capture with what the user touched. `scrollLifecycleRule` is a signal
   processor over frame deltas, with tunable thresholds.
 
+### Hosts
+
+A host hands the pipeline a `RecordingTarget`; the pipeline never sees more of
+it than the transport. Every host reaches CDP through an interface its vendor
+supports — Chromium does not support third-party applications opening a
+DevTools connection of their own, so no host does.
+
+| Mode | Host | CDP through | Chrome |
+| --- | --- | --- | --- |
+| Node CLI | `@openuji/host-puppeteer` | Puppeteer `CDPSession` | Chrome for Testing, pinned with Puppeteer |
+| Extension (next) | — | `chrome.debugger` | the user's own Chrome |
+| Desktop (later) | — | Electron `webContents.debugger` | the Chromium Electron ships |
+
+Headless (`UXR_HEADLESS=1`) runs `chrome-headless-shell`: full Chrome's headless
+mode reports every screencast frame at scroll offset 0, which blinds the scroll
+rules.
+
+Puppeteer and `devtools-protocol` (the CDP types in `@openuji/cdp`) move
+together, in one change, to the versions Puppeteer pins. The streams still
+depend on specific CDP commands and events, so CI runs the real-browser suite
+against the pinned build and the Chromes extension users run: Extended Stable,
+Stable and Beta — see below.
+
 ---
 
 ## Development
@@ -144,6 +167,25 @@ pnpm test        # bundle the probe, then vitest against sources — no browser
 
 Stream and pipeline tests run on `createFakeCdpTransport()` from
 `@openuji/cdp/testing`: script Chromium's events, assert on the commands sent.
+
+### Real-browser compatibility
+
+The fake transport only replays what we believe Chrome sends. `pnpm test:browser`
+checks that belief against a launched Chrome: each source alone, then the full
+pipeline, on a local fixture page driven through CDP `Input.*`.
+
+```bash
+pnpm test:browser                         # pinned Chrome for Testing, headed
+UXR_HEADLESS=1 pnpm test:browser          # pinned chrome-headless-shell
+UXR_CHROME_EXECUTABLE=/path/to/chrome pnpm test:browser   # any other Chrome
+```
+
+CI (`.github/workflows/ci.yml`) runs it headed under Xvfb on every push, pull
+request and daily, once per Chrome in the matrix `.github/scripts/chrome-matrix.mjs`
+resolves at run time: `pinned`, Extended Stable, Stable and Beta. Extended Stable
+is read from Chromium Dash, not derived from Stable — with two-week Stable majors
+and eight-week Extended updates it trails Stable by up to three majors. Every
+entry must pass.
 
 Each stream is independently runnable — that is the point of the split. The
 runners live in `apps/stream-cli`:

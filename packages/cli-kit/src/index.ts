@@ -1,9 +1,9 @@
 import type { RecordingTarget } from '@openuji/cdp';
 import {
   DEFAULT_VIEWPORT,
-  launchPlaywrightTarget,
+  launchPuppeteerTarget,
   type WaitUntil,
-} from '@openuji/host-playwright';
+} from '@openuji/host-puppeteer';
 
 export const DEFAULT_TARGET_URL = 'https://example.com';
 export { DEFAULT_VIEWPORT };
@@ -52,7 +52,7 @@ export async function runStreamCli(options: StreamCliOptions): Promise<void> {
   const targetUrl = options.targetUrl ?? targetUrlFromArgv();
 
   console.log(`Launching browser (${options.label})...`);
-  const target = await launchPlaywrightTarget({
+  const target = await launchPuppeteerTarget({
     headless: options.headless ?? headlessFromEnv(),
     viewport: DEFAULT_VIEWPORT,
   });

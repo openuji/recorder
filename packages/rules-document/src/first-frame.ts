@@ -1,4 +1,5 @@
 import { unchanged, type MilestoneRule } from '@openuji/engine';
+import { DocumentLabel } from './labels.js';
 
 export type FirstFrameState = Readonly<{ saved: boolean }>;
 
@@ -18,7 +19,7 @@ export const FirstFrameRule: MilestoneRule<FirstFrameState> = {
           documentId: currentDocument.id,
           loaderId: currentDocument.loaderId,
           url: currentDocument.url,
-          label: '00-first',
+          label: DocumentLabel.first,
           frame: currentFrame,
           detail: 'First visual compositor frame for this document',
         },

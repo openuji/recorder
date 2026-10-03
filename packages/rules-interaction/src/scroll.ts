@@ -1,6 +1,6 @@
 import type { CompositorFrame, DocumentState } from '@openuji/core';
 import { unchanged, type MilestoneRule } from '@openuji/engine';
-import { episodeLabel } from './episode.js';
+import { episodeLabel, InteractionLabel } from './episode.js';
 
 export type ScrollLifecycleState = Readonly<{
   episodeCount: number;
@@ -48,7 +48,7 @@ function settleCapture(
     documentId: currentDocument.id,
     loaderId: currentDocument.loaderId,
     url: currentDocument.url,
-    label: episodeLabel('04-post-scroll', episode),
+    label: episodeLabel(InteractionLabel.postScroll, episode),
     frame,
     detail: `Post-scroll #${episode} settled at (${frame.scrollX}, ${frame.scrollY}) (delta: ${sign}${deltaY}px${via})`,
   };
@@ -154,7 +154,7 @@ export function scrollLifecycleRule(
               documentId: currentDocument.id,
               loaderId: currentDocument.loaderId,
               url: currentDocument.url,
-              label: episodeLabel('03-pre-scroll', episode),
+              label: episodeLabel(InteractionLabel.preScroll, episode),
               frame: lastFrame,
               detail: `Pre-scroll #${episode} at (${lastFrame.scrollX}, ${lastFrame.scrollY}) before moving to (${currentFrame.scrollX}, ${currentFrame.scrollY})`,
             },

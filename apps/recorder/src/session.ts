@@ -6,9 +6,9 @@ import type { MilestoneRule } from '@openuji/engine';
 import { startRecording, type RecordingHandle } from '@openuji/fused';
 import {
   DEFAULT_VIEWPORT,
-  launchPlaywrightTarget,
-  type PlaywrightTarget,
-} from '@openuji/host-playwright';
+  launchPuppeteerTarget,
+  type PuppeteerTarget,
+} from '@openuji/host-puppeteer';
 import { ConsoleSink, PersistenceSink } from '@openuji/sinks';
 
 export interface StreamWatchOptions {
@@ -26,12 +26,12 @@ export interface StreamWatchOptions {
 }
 
 /**
- * Orchestrates a full end-to-end capture session: a Playwright-launched
+ * Orchestrates a full end-to-end capture session: a Puppeteer-launched
  * browser as the host, and the host-agnostic recording pipeline (fused
  * streams, rules engine, sinks) running over its CDP transport.
  */
 export class StreamWatchSession {
-  private target: PlaywrightTarget | null = null;
+  private target: PuppeteerTarget | null = null;
   private recording: RecordingHandle | null = null;
   private isStopping = false;
 
@@ -58,7 +58,7 @@ export class StreamWatchSession {
     ];
 
     console.log('Launching browser session...');
-    this.target = await launchPlaywrightTarget({
+    this.target = await launchPuppeteerTarget({
       headless: this.options.headless ?? headlessFromEnv(),
       viewport: this.options.viewport ?? DEFAULT_VIEWPORT,
     });
@@ -107,10 +107,10 @@ export class StreamWatchSession {
   }
 
   /**
-   * The recorded target, once `start()` has run. Exposes the Playwright
+   * The recorded target, once `start()` has run. Exposes the Puppeteer
    * `page` and `browser` for driving the session programmatically.
    */
-  public get targetHandle(): PlaywrightTarget | null {
+  public get targetHandle(): PuppeteerTarget | null {
     return this.target;
   }
 }

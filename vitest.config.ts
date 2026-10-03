@@ -17,6 +17,7 @@ export default defineConfig({
       '@openuji/core': pkg('./packages/core/src/index.ts'),
       '@openuji/engine': pkg('./packages/engine/src/index.ts'),
       '@openuji/fused': pkg('./packages/fused/src/index.ts'),
+      '@openuji/host-puppeteer': pkg('./packages/host-puppeteer/src/index.ts'),
       '@openuji/rules-document': pkg('./packages/rules-document/src/index.ts'),
       '@openuji/rules-interaction': pkg('./packages/rules-interaction/src/index.ts'),
       '@openuji/sinks': pkg('./packages/sinks/src/index.ts'),

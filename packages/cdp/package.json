@@ -21,6 +21,6 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
-    "devtools-protocol": "^0.0.1707781"
+    "devtools-protocol": "0.0.1687809"
   }
 }

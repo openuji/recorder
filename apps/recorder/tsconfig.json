@@ -10,7 +10,7 @@
     { "path": "../../packages/cli-kit" },
     { "path": "../../packages/engine" },
     { "path": "../../packages/fused" },
-    { "path": "../../packages/host-playwright" },
+    { "path": "../../packages/host-puppeteer" },
     { "path": "../../packages/rules-document" },
     { "path": "../../packages/rules-interaction" },
     { "path": "../../packages/sinks" }

@@ -1,10 +1,13 @@
 /**
  * The one seam between the recorder and whatever is hosting Chromium.
  *
- * Playwright's `CDPSession`, an extension's `chrome.debugger`, Electron's
- * `webContents.debugger` and a raw DevTools WebSocket all reduce to this: send a
- * command, listen for events. Streams depend on nothing else, which is what
- * lets the same recording pipeline run under any of those hosts.
+ * Puppeteer's `CDPSession`, an extension's `chrome.debugger` and Electron's
+ * `webContents.debugger` all reduce to this: send a command, listen for events.
+ * Streams depend on nothing else, which is what lets the same recording pipeline
+ * run under any of those hosts.
+ *
+ * Hosts reach CDP only through such a supported surface, never a DevTools socket
+ * of their own: Chromium does not support third-party CDP connections.
  *
  * Typed against `devtools-protocol`, which is types-only — it adds nothing to a
  * bundle.

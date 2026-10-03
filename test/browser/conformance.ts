@@ -1,0 +1,335 @@
+/**
+ * What every host must hold true against a real browser.
+ *
+ * The unit suites script Chromium through a fake transport; this one checks
+ * that a real Chrome still sends what those scripts assume — the events, their
+ * order and their fields. It runs against whatever Chrome the host launches, so
+ * CI runs it once per Chrome major the recorder supports.
+ *
+ * Input goes through CDP (`./input.ts`), never a host automation API, so the
+ * same suite can run unchanged on any host.
+ */
+
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { CdpTransport, RecordingTarget } from '@openuji/cdp';
+import type {
+  CaptureSink,
+  LifecycleEvent,
+  MilestoneCapture,
+} from '@openuji/core';
+import { startRecording } from '@openuji/fused';
+import { DocumentLabel } from '@openuji/rules-document';
+import { episodeLabel, InteractionLabel } from '@openuji/rules-interaction';
+import { createCompositorStream } from '@openuji/stream-compositor';
+import { createInteractionStream } from '@openuji/stream-interaction';
+import { createLifecycleStream } from '@openuji/stream-lifecycle';
+import { BUTTON, startFixtureServer, type FixtureServer } from './fixture.js';
+import { click, wheel } from './input.js';
+
+export interface HostUnderTest {
+  /** A fresh target, not yet navigated anywhere. */
+  launch(): Promise<RecordingTarget>;
+  /** When set, the browser must report exactly this version, e.g. `154.0.8037.57`. */
+  readonly expectedVersion?: string | undefined;
+}
+
+const WAIT = { timeout: 15_000, interval: 50 };
+
+const PNG_SIGNATURE_BASE64 = 'iVBORw0KGgo';
+
+const preClick = episodeLabel(InteractionLabel.preClick, 1);
+const postClick = episodeLabel(InteractionLabel.postClick, 1);
+const preScroll = episodeLabel(InteractionLabel.preScroll, 1);
+const postScroll = episodeLabel(InteractionLabel.postScroll, 1);
+
+const BUTTON_CENTER = {
+  x: BUTTON.x + BUTTON.width / 2,
+  y: BUTTON.y + BUTTON.height / 2,
+};
+
+/** Clear of the button, inside any viewport the hosts use. */
+const SCROLL_POINT = { x: 400, y: 400 };
+
+class MemorySink implements CaptureSink {
+  public readonly name = 'memory';
+  public readonly captures: MilestoneCapture[] = [];
+
+  public enqueue(capture: MilestoneCapture): void {
+    this.captures.push(capture);
+  }
+
+  public async drain(): Promise<void> {}
+
+  /** Capture labels in order, optionally only those of one document URL. */
+  public labels(url?: string): string[] {
+    return this.captures
+      .filter((capture) => url === undefined || capture.url === url)
+      .map((capture) => capture.label);
+  }
+}
+
+/** Consume a stream into an array the test can poll. */
+function collect<T>(iterable: AsyncIterable<T>): T[] {
+  const items: T[] = [];
+  void (async () => {
+    for await (const item of iterable) items.push(item);
+  })();
+  return items;
+}
+
+/** Until the top document is `url` and fully loaded. */
+async function waitForLoaded(cdp: CdpTransport, url: string): Promise<void> {
+  await vi.waitFor(async () => {
+    const { result } = await cdp.send('Runtime.evaluate', {
+      expression: 'location.href + " " + document.readyState',
+      returnByValue: true,
+    });
+    expect(result.value).toBe(`${url} complete`);
+  }, WAIT);
+}
+
+function milestonesOf(events: readonly LifecycleEvent[], loaderId: string): string[] {
+  return events.flatMap((event) =>
+    event.type === 'milestone' && event.isMainFrame && event.loaderId === loaderId
+      ? [event.name]
+      : [],
+  );
+}
+
+export function describeHostConformance(name: string, host: HostUnderTest): void {
+  describe(`${name} host against a real browser`, () => {
+    let fixture: FixtureServer;
+
+    beforeAll(async () => {
+      fixture = await startFixtureServer();
+    });
+
+    afterAll(async () => {
+      await fixture?.close();
+    });
+
+    /** Runs `body` against a fresh target and always closes it. */
+    const withTarget = async (
+      body: (target: RecordingTarget) => Promise<void>,
+    ): Promise<void> => {
+      const target = await host.launch();
+      try {
+        // A headed window that opens behind others is occluded, and Chrome
+        // stops producing frames for it.
+        await target.cdp.send('Page.bringToFront');
+        await body(target);
+      } finally {
+        await target.close();
+      }
+    };
+
+    it('runs the browser it was asked for', () =>
+      withTarget(async ({ cdp }) => {
+        const { product } = await cdp.send('Browser.getVersion');
+        console.info(`[${name}] running ${product}`);
+
+        if (host.expectedVersion) {
+          expect(product.split('/').pop()).toBe(host.expectedVersion);
+        }
+      }));
+
+    it('navigate: resolves only once the new document has committed', () =>
+      withTarget(async (target) => {
+        const { cdp } = target;
+        const committed: string[] = [];
+        const off = cdp.on('Page.frameNavigated', ({ frame }) => {
+          if (!frame.parentId) committed.push(frame.url);
+        });
+
+        // Checked the instant `navigate` resolves — no waiting, no polling.
+        for (const url of [fixture.url('/'), fixture.url('/second')]) {
+          await target.navigate(url);
+          expect(committed.at(-1)).toBe(url);
+
+          const { result } = await cdp.send('Runtime.evaluate', {
+            expression: 'location.href',
+            returnByValue: true,
+          });
+          expect(result.value).toBe(url);
+        }
+
+        off();
+      }));
+
+    it('lifecycle: reports the navigation, then its milestones in order', () =>
+      withTarget(async (target) => {
+        const url = fixture.url('/');
+        const lifecycle = await createLifecycleStream(target.cdp);
+        const events = collect(lifecycle.events);
+
+        await target.navigate(url);
+
+        let loaderId = '';
+        await vi.waitFor(() => {
+          const navigated = events.find(
+            (event) => event.type === 'navigated' && event.isMainFrame && event.url === url,
+          );
+          expect(navigated).toBeDefined();
+          loaderId = navigated!.loaderId;
+          expect(milestonesOf(events, loaderId)).toContain('networkAlmostIdle');
+        }, WAIT);
+
+        const milestones = milestonesOf(events, loaderId);
+        expect(milestones).toEqual(
+          expect.arrayContaining(['DOMContentLoaded', 'load', 'networkAlmostIdle']),
+        );
+        expect(milestones.indexOf('DOMContentLoaded')).toBeLessThan(
+          milestones.indexOf('load'),
+        );
+
+        await lifecycle.stop();
+      }));
+
+    it('compositor: keeps PNG frames flowing and reports scroll offsets', () =>
+      withTarget(async (target) => {
+        const url = fixture.url('/');
+        const compositor = await createCompositorStream(target.cdp, {
+          viewport: target.viewport,
+        });
+        const frames = collect(compositor.frames);
+
+        await target.navigate(url);
+        await waitForLoaded(target.cdp, url);
+
+        // More than one frame means every frame was acknowledged: Chromium
+        // withholds the next one until the previous is.
+        await vi.waitFor(() => expect(frames.length).toBeGreaterThanOrEqual(3), WAIT);
+
+        const first = frames[0]!;
+        expect(first.base64.startsWith(PNG_SIGNATURE_BASE64)).toBe(true);
+        if (target.viewport) {
+          expect(first.viewportWidth).toBe(target.viewport.width);
+        }
+
+        await wheel(target.cdp, SCROLL_POINT.x, SCROLL_POINT.y, 600);
+        await vi.waitFor(
+          () => expect(frames.some((frame) => frame.scrollY > 0)).toBe(true),
+          WAIT,
+        );
+
+        await compositor.stop();
+      }));
+
+    it('interaction: the probe reports clicks and scroll ends', () =>
+      withTarget(async (target) => {
+        const url = fixture.url('/');
+        const interaction = await createInteractionStream(target.cdp);
+        const events = collect(interaction.events);
+
+        await target.navigate(url);
+        await waitForLoaded(target.cdp, url);
+
+        await click(target.cdp, BUTTON_CENTER.x, BUTTON_CENTER.y);
+        await vi.waitFor(() => {
+          const clicked = events.find((event) => event.action === 'click');
+          expect(clicked?.target.selector).toBe('button#go');
+        }, WAIT);
+
+        await wheel(target.cdp, SCROLL_POINT.x, SCROLL_POINT.y, 600);
+        await vi.waitFor(
+          () => expect(events.map((event) => event.action)).toContain('scrollend'),
+          WAIT,
+        );
+
+        await interaction.stop();
+      }));
+
+    it('pipeline: captures every default milestone across a navigation', () =>
+      withTarget(async (target) => {
+        const first = fixture.url('/');
+        const second = fixture.url('/second');
+        const sink = new MemorySink();
+        const recording = await startRecording(target.cdp, {
+          sinks: [sink],
+          screencast: { viewport: target.viewport },
+        });
+
+        const waitForLabel = (label: string, url: string): Promise<void> =>
+          vi.waitFor(() => expect(sink.labels(url)).toContain(label), WAIT);
+
+        await target.navigate(first);
+        await waitForLabel(DocumentLabel.settled, first);
+
+        await click(target.cdp, BUTTON_CENTER.x, BUTTON_CENTER.y);
+        await waitForLabel(postClick, first);
+
+        await wheel(target.cdp, SCROLL_POINT.x, SCROLL_POINT.y, 600);
+        await waitForLabel(postScroll, first);
+
+        await target.navigate(second);
+        await waitForLabel(DocumentLabel.first, second);
+
+        await recording.stop();
+
+        const labels = sink.labels(first);
+        expect(labels).toEqual(
+          expect.arrayContaining([
+            DocumentLabel.first,
+            DocumentLabel.domContentLoaded,
+            DocumentLabel.settled,
+            preClick,
+            postClick,
+            preScroll,
+            postScroll,
+            DocumentLabel.beforeNavigation,
+          ]),
+        );
+        expect(labels.indexOf(preClick)).toBeLessThan(
+          labels.indexOf(postClick),
+        );
+        expect(labels.indexOf(preScroll)).toBeLessThan(
+          labels.indexOf(postScroll),
+        );
+
+        const postClick = sink.captures.find(
+          (capture) => capture.label === postClick,
+        );
+        expect(postClick?.domTarget?.selector).toBe('button#go');
+        for (const capture of sink.captures) {
+          expect(capture.frame.base64.startsWith(PNG_SIGNATURE_BASE64)).toBe(true);
+        }
+      }));
+
+    it('pipeline: attached to a loaded page, captures no milestone it did not see', () =>
+      withTarget(async (target) => {
+        const url = fixture.url('/');
+
+        // Load the page fully before the recording exists.
+        const lifecycle = await createLifecycleStream(target.cdp);
+        const events = collect(lifecycle.events);
+        await target.navigate(url);
+        await vi.waitFor(
+          () =>
+            expect(
+              events.some(
+                (event) =>
+                  event.type === 'milestone' &&
+                  event.isMainFrame &&
+                  event.name === 'networkAlmostIdle',
+              ),
+            ).toBe(true),
+          WAIT,
+        );
+        await lifecycle.stop();
+
+        const sink = new MemorySink();
+        const recording = await startRecording(target.cdp, {
+          sinks: [sink],
+          screencast: { viewport: target.viewport },
+        });
+        await vi.waitFor(() => expect(sink.labels()).toContain(DocumentLabel.first), WAIT);
+
+        // Let plenty of frames pass: a milestone Chromium replayed from before
+        // the recording would arm its rule, and the next frame would capture.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await recording.stop();
+
+        expect(sink.labels()).toEqual([DocumentLabel.first, DocumentLabel.beforeNavigation]);
+      }));
+  });
+}

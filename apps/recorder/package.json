@@ -25,7 +25,7 @@
     "@openuji/core": "workspace:*",
     "@openuji/engine": "workspace:*",
     "@openuji/fused": "workspace:*",
-    "@openuji/host-playwright": "workspace:*",
+    "@openuji/host-puppeteer": "workspace:*",
     "@openuji/rules-document": "workspace:*",
     "@openuji/rules-interaction": "workspace:*",
     "@openuji/sinks": "workspace:*"

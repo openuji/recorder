@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  # Stable and Beta move without any commit here; a daily run notices when a new
+  # Chrome stops sending what the streams expect.
+  schedule:
+    - cron: '0 5 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  chrome-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.resolve.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: resolve
+        run: node .github/scripts/chrome-matrix.mjs
+
+  browser-compat:
+    name: browser-compat (${{ matrix.chrome.name }})
+    needs: chrome-matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        chrome: ${{ fromJSON(needs.chrome-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # Each job installs exactly the one Chrome it tests, below.
+      - run: pnpm install --frozen-lockfile
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+      - name: Install ${{ matrix.chrome.spec }}
+        run: |
+          line=$(pnpm --filter @openuji/host-puppeteer exec puppeteer browsers install "${{ matrix.chrome.spec }}" | grep '^chrome@' | tail -1)
+          build=${line%% *}
+          echo "UXR_CHROME_VERSION=${build#chrome@}" >> "$GITHUB_ENV"
+          echo "UXR_CHROME_EXECUTABLE=${line#* }" >> "$GITHUB_ENV"
+          echo "Installed $line"
+
+      # Ubuntu 24.04 denies the unprivileged user namespaces Chrome's sandbox
+      # needs; lift that rather than run Chrome with --no-sandbox.
+      - run: echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+
+      # Headed, on a virtual display: full Chrome's headless mode does not report
+      # scroll offsets in screencast frames, and users run Chrome headed.
+      - run: xvfb-run --auto-servernum pnpm test:browser

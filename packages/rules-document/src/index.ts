@@ -6,6 +6,7 @@ import {
 } from './lifecycle-milestone.js';
 import { BeforeNavigationRule } from './before-navigation.js';
 
+export * from './labels.js';
 export * from './first-frame.js';
 export * from './lifecycle-milestone.js';
 export * from './before-navigation.js';

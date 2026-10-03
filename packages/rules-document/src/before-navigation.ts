@@ -1,4 +1,5 @@
 import { unchanged, type MilestoneRule } from '@openuji/engine';
+import { DocumentLabel } from './labels.js';
 
 export type BeforeNavigationState = Readonly<{ saved: boolean }>;
 
@@ -30,7 +31,7 @@ export const BeforeNavigationRule: MilestoneRule<BeforeNavigationState> = {
           documentId: currentDocument.id,
           loaderId: currentDocument.loaderId,
           url: currentDocument.url,
-          label: '99-before-navigation',
+          label: DocumentLabel.beforeNavigation,
           frame: lastFrame,
           detail:
             event.type === 'stop'

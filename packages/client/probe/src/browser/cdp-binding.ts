@@ -4,7 +4,7 @@
  * Injected via `Page.addScriptToEvaluateOnNewDocument` (and `Runtime.evaluate`
  * for a document already showing). Reports through the `Runtime.addBinding`
  * function, JSON-encoded, so payloads reach the host in the same ordered CDP
- * event stream as the compositor frames. Works under any CDP host: Playwright,
+ * event stream as the compositor frames. Works under any CDP host: Puppeteer,
  * Electron, or an extension through `chrome.debugger`.
  */
 

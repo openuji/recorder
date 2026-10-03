@@ -5,5 +5,5 @@
     "outDir": "./dist"
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../cdp" }, { "path": "../host-playwright" }]
+  "references": [{ "path": "../cdp" }, { "path": "../host-puppeteer" }]
 }

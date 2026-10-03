@@ -286,10 +286,10 @@ export function describeHostConformance(name: string, host: HostUnderTest): void
           labels.indexOf(postScroll),
         );
 
-        const postClick = sink.captures.find(
+        const clicked = sink.captures.find(
           (capture) => capture.label === postClick,
         );
-        expect(postClick?.domTarget?.selector).toBe('button#go');
+        expect(clicked?.domTarget?.selector).toBe('button#go');
         for (const capture of sink.captures) {
           expect(capture.frame.base64.startsWith(PNG_SIGNATURE_BASE64)).toBe(true);
         }

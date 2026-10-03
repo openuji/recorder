@@ -81,5 +81,6 @@ jobs:
       - run: echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
 
       # Headed, on a virtual display: full Chrome's headless mode does not report
-      # scroll offsets in screencast frames, and users run Chrome headed.
-      - run: xvfb-run --auto-servernum pnpm test:browser
+      # scroll offsets in screencast frames, and users run Chrome headed. Headed
+      # pages lay out to their real window, so the screen must fit the viewport.
+      - run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" pnpm test:browser

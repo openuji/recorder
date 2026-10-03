@@ -1,7 +1,11 @@
+import { describe, expect, it } from 'vitest';
+import type { CdpTransport } from '@openuji/cdp';
 import { launchPuppeteerTarget } from '@openuji/host-puppeteer';
 import { describeHostConformance } from './conformance.js';
 
 const env = process.env;
+const headless = env['UXR_HEADLESS'] === '1' || env['UXR_HEADLESS'] === 'true';
+const executablePath = env['UXR_CHROME_EXECUTABLE'];
 
 /**
  * The pinned Chrome for Testing build by default. CI points
@@ -13,10 +17,38 @@ const env = process.env;
  * `UXR_HEADLESS=1` switches to the pinned `chrome-headless-shell`.
  */
 describeHostConformance('puppeteer', {
-  launch: () =>
-    launchPuppeteerTarget({
-      headless: env['UXR_HEADLESS'] === '1' || env['UXR_HEADLESS'] === 'true',
-      executablePath: env['UXR_CHROME_EXECUTABLE'],
-    }),
+  launch: () => launchPuppeteerTarget({ headless, executablePath }),
   expectedVersion: env['UXR_CHROME_VERSION'],
+});
+
+/** `<innerWidth>x<innerHeight>@<devicePixelRatio>` of the page. */
+async function layoutOf(cdp: CdpTransport): Promise<string> {
+  const { result } = await cdp.send('Runtime.evaluate', {
+    expression: '`${innerWidth}x${innerHeight}@${devicePixelRatio}`',
+    returnByValue: true,
+  });
+  return result.value as string;
+}
+
+describe.skipIf(headless)('puppeteer host, headed', () => {
+  it('lays the page out to its window, as a person sees it', async () => {
+    const target = await launchPuppeteerTarget({
+      headless: false,
+      executablePath,
+      viewport: { width: 1000, height: 700 },
+    });
+    try {
+      expect(target.viewport).toBeUndefined();
+      // Scale factor 1 even on a HiDPI screen, where any other blanks the
+      // screencast's scroll offsets.
+      expect(await layoutOf(target.cdp)).toBe('1000x700@1');
+
+      // As if the user dragged the window smaller: a fixed viewport would keep
+      // the page at 1000x700 and clip it.
+      await target.page.resize({ contentWidth: 900, contentHeight: 600 });
+      expect(await layoutOf(target.cdp)).toBe('900x600@1');
+    } finally {
+      await target.close();
+    }
+  });
 });

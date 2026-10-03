@@ -14,6 +14,13 @@ export interface PuppeteerTargetOptions {
    * 154), which blinds the scroll rules. Defaults to headless.
    */
   readonly headless?: boolean;
+  /**
+   * Headless: the viewport the page is emulated at, fixed for the session.
+   * Headed: the size the window's content area opens at. The page then lays
+   * out to its real window and reflows when the user resizes it, as any tab
+   * does, so the target reports no viewport and the compositor reads it from
+   * CDP.
+   */
   readonly viewport?: Viewport;
   /**
    * Chrome to launch. Omit for the Chrome for Testing build this Puppeteer
@@ -31,7 +38,6 @@ export interface PuppeteerTargetOptions {
  * the page in a script, say); nothing in the recording pipeline touches them.
  */
 export interface PuppeteerTarget extends RecordingTarget {
-  readonly viewport: Viewport;
   readonly browser: Browser;
   readonly page: Page;
   /** `waitUntil` defaults to `'commit'`, the `RecordingTarget` contract. */
@@ -41,12 +47,16 @@ export interface PuppeteerTarget extends RecordingTarget {
 export async function launchPuppeteerTarget(
   options: PuppeteerTargetOptions = {},
 ): Promise<PuppeteerTarget> {
+  const headless = options.headless !== false;
   const viewport = { ...(options.viewport ?? DEFAULT_VIEWPORT) };
 
   const browser = await puppeteer.launch({
-    headless: options.headless === false ? false : 'shell',
+    headless: headless ? 'shell' : false,
     ...(options.executablePath ? { executablePath: options.executablePath } : {}),
-    defaultViewport: viewport,
+    // Headed, a fixed viewport would pin the layout at `viewport` no matter how
+    // big the window really is: a smaller window clips the page and resizing
+    // never reflows it.
+    defaultViewport: headless ? viewport : null,
     // Puppeteer installs its own SIGINT/SIGTERM handlers that close the browser
     // and exit the process. That races our teardown and can cut the session
     // short before the final capture is flushed, so we take over signal
@@ -60,7 +70,26 @@ export async function launchPuppeteerTarget(
     // Every launch gets a fresh temporary profile, so the default context is
     // already isolated; reusing its first tab avoids a stray blank window.
     const page = (await browser.pages())[0] ?? (await browser.newPage());
-    const cdp = createPuppeteerTransport(await page.createCDPSession());
+    const session = await page.createCDPSession();
+    if (!headless) {
+      // Sizes the content area, not the window, so the toolbar does not eat
+      // into it. The OS may still clamp it to fit the screen.
+      await page.resize({
+        contentWidth: viewport.width,
+        contentHeight: viewport.height,
+      });
+      // Width and height 0 leave the layout to the real window. The scale
+      // factor stays pinned at 1: at any other — a HiDPI screen's own included
+      // — Chrome reports every screencast frame at scroll offset 0 (seen on
+      // Chrome 154), which blinds the scroll rules.
+      await session.send('Emulation.setDeviceMetricsOverride', {
+        width: 0,
+        height: 0,
+        deviceScaleFactor: 1,
+        mobile: false,
+      });
+    }
+    const cdp = createPuppeteerTransport(session);
 
     const onClosed = (listener: () => void): Unsubscribe => {
       // Closing the last window does not end the browser everywhere (macOS
@@ -82,7 +111,7 @@ export async function launchPuppeteerTarget(
 
     return {
       cdp,
-      viewport,
+      ...(headless ? { viewport } : {}),
       browser,
       page,
 

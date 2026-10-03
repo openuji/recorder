@@ -149,6 +149,11 @@ Headless (`UXR_HEADLESS=1`) runs `chrome-headless-shell`: full Chrome's headless
 mode reports every screencast frame at scroll offset 0, which blinds the scroll
 rules.
 
+Headed, the page lays out to its real window and reflows when the window is
+resized; the viewport size only sets the window's opening content area. The
+device scale factor stays pinned at 1, because at any other — a HiDPI screen's
+own included — Chrome reports screencast scroll offsets as 0 too.
+
 Puppeteer and `devtools-protocol` (the CDP types in `@openuji/cdp`) move
 together, in one change, to the versions Puppeteer pins. The streams still
 depend on specific CDP commands and events, so CI runs the real-browser suite

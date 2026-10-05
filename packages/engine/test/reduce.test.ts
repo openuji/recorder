@@ -2,27 +2,34 @@ import { describe, expect, it } from 'vitest';
 import type { DomainEvent, MilestoneCapture } from '@openuji/core';
 import {
   RulesEngine,
+  captureFor,
   initialEngineState,
   reduce,
   unchanged,
   type MilestoneRule,
 } from '@openuji/engine';
 import { defaultDocumentRules } from '@openuji/rules-document';
-import { navigated, frameEvent, milestone } from './helpers.js';
+import { navigated, frameEvent, milestone, withinDocument } from './helpers.js';
 
 /** Records every event it is shown, so we can assert on engine dispatch. */
-function spyRule(id: string): MilestoneRule<string[]> & { seen: string[][] } {
+function spyRule(id: string): MilestoneRule<string[]> & {
+  seen: string[][];
+  previous: (string[] | undefined)[];
+} {
   const seen: string[][] = [];
+  const previous: (string[] | undefined)[] = [];
   return {
     id,
     seen,
-    init: () => {
+    previous,
+    init: (_view, prior) => {
+      previous.push(prior);
       const log: string[] = [];
       seen.push(log);
       return log;
     },
     evaluate: (state, event) => {
-      state.push(event.type);
+      state.push(event.type === 'navigated' && event.sameDocument ? 'url-update' : event.type);
       return unchanged(state);
     },
   };
@@ -36,6 +43,8 @@ function run(
   return events.flatMap((event) => [...engine.processEvent(event)]);
 }
 
+const page = (path: string): string => `https://example.com${path}`;
+
 describe('reduce', () => {
   it('ignores everything until a main-frame document commits', () => {
     const { state, captures } = reduce(
@@ -45,38 +54,87 @@ describe('reduce', () => {
     );
 
     expect(captures).toEqual([]);
-    expect(state.currentDocument).toBeNull();
+    expect(state.currentView).toBeNull();
   });
 
-  it('assigns incrementing document ids across navigations', () => {
+  it('numbers views and documents across navigations', () => {
     const engine = new RulesEngine(defaultDocumentRules);
+    const current = () => engine.currentState.currentView;
 
-    engine.processEvent(navigated('loader-a'));
-    expect(engine.currentState.currentDocument?.id).toBe(1);
+    engine.processEvent(navigated('loader-a', page('/')));
+    expect(current()).toMatchObject({ id: 1, documentId: 1, entry: 'load' });
+
+    engine.processEvent(withinDocument(page('/inbox'), 'loader-a'));
+    expect(current()).toMatchObject({
+      id: 2,
+      documentId: 1,
+      loaderId: 'loader-a',
+      url: page('/inbox'),
+      entry: 'route',
+    });
 
     engine.processEvent(navigated('loader-b'));
-    expect(engine.currentState.currentDocument?.id).toBe(2);
+    expect(current()).toMatchObject({ id: 3, documentId: 2, entry: 'load' });
   });
 
-  it('keeps document identity and rule state across a same-loader redirect', () => {
+  it('keeps view identity and rule state across a same-loader redirect', () => {
     const engine = new RulesEngine(defaultDocumentRules);
 
-    engine.processEvent(navigated('loader-a', 'https://example.com/one'));
+    engine.processEvent(navigated('loader-a', page('/one')));
     const first = engine.processEvent(frameEvent());
     expect(first.map((c) => c.label)).toEqual(['00-first']);
 
-    // Same loaderId: a URL update, not a new document.
-    engine.processEvent(navigated('loader-a', 'https://example.com/two'));
-    expect(engine.currentState.currentDocument?.id).toBe(1);
-    expect(engine.currentState.currentDocument?.url).toBe(
-      'https://example.com/two',
-    );
+    // Same loaderId: a URL update, not a new view.
+    engine.processEvent(navigated('loader-a', page('/two')));
+    expect(engine.currentState.currentView?.id).toBe(1);
+    expect(engine.currentState.currentView?.url).toBe(page('/two'));
 
-    // first-frame already fired for this document and must not fire again.
+    // first-frame already fired for this view and must not fire again.
     expect(engine.processEvent(frameEvent())).toEqual([]);
   });
 
-  it('resets rule state for each new document', () => {
+  it('updates the URL in place when a same-document change is not a route', () => {
+    const spy = spyRule('spy');
+    const engine = new RulesEngine([spy, ...defaultDocumentRules]);
+
+    engine.processEvent(navigated('loader-a', page('/list')));
+    engine.processEvent(frameEvent());
+    engine.processEvent(withinDocument(page('/list?q=shoes')));
+    const captures = engine.processEvent({ type: 'stop' });
+
+    expect(engine.currentState.currentView).toMatchObject({ id: 1, url: page('/list?q=shoes') });
+    // No boundary: one view, and the URL update reaches the rules as is.
+    expect(spy.seen).toEqual([['frame', 'url-update', 'stop']]);
+    expect(captures[0]?.url).toBe(page('/list?q=shoes'));
+  });
+
+  it('honours a custom route policy', () => {
+    const engine = new RulesEngine(defaultDocumentRules, {
+      routePolicy: (from, to) => from !== to,
+    });
+
+    engine.processEvent(navigated('loader-a', page('/list')));
+    engine.processEvent(withinDocument(page('/list?q=shoes')));
+
+    expect(engine.currentState.currentView).toMatchObject({ id: 2, entry: 'route' });
+  });
+
+  it("ignores a subframe's same-document navigation", () => {
+    const engine = new RulesEngine(defaultDocumentRules);
+
+    engine.processEvent(navigated('loader-a', page('/')));
+    engine.processEvent(withinDocument(page('/ad#/slot'), 'loader-ad', { isMainFrame: false }));
+
+    expect(engine.currentState.currentView).toMatchObject({ id: 1, url: page('/') });
+  });
+
+  it('ignores a same-document navigation before any view', () => {
+    const { state } = reduce(initialEngineState, withinDocument(page('/b')), defaultDocumentRules);
+
+    expect(state.currentView).toBeNull();
+  });
+
+  it('resets rule state for each new view', () => {
     const engine = new RulesEngine(defaultDocumentRules);
 
     engine.processEvent(navigated('loader-a'));
@@ -87,54 +145,96 @@ describe('reduce', () => {
     engine.processEvent(navigated('loader-b'));
     const captures = engine.processEvent(frameEvent());
     expect(captures.map((c) => c.label)).toEqual(['00-first']);
+    expect(captures[0]?.viewId).toBe(2);
     expect(captures[0]?.documentId).toBe(2);
   });
 
-  it('does not pass the navigation that created a document to its fresh rules', () => {
+  it('does not pass the navigation that created a view to its fresh rules', () => {
     const spy = spyRule('spy');
 
-    run([navigated('loader-a'), frameEvent()], [spy]);
+    run([navigated('loader-a'), frameEvent(), withinDocument(page('/b')), frameEvent()], [spy]);
 
-    // One init for the document; the navigation that created it is not dispatched.
-    expect(spy.seen).toHaveLength(1);
-    expect(spy.seen[0]).toEqual(['frame']);
+    // One init per view; the navigations that created them are not dispatched.
+    expect(spy.seen).toHaveLength(2);
+    expect(spy.seen[0]).toEqual(['frame', 'view-exit']);
+    expect(spy.seen[1]).toEqual(['frame']);
   });
 
-  it('delivers document-exit to every rule, against the departing document', () => {
-    const spy = spyRule('spy');
+  it('delivers view-exit to every rule, against the departing view, for both entries', () => {
+    const exits: string[] = [];
+    const exitSpy: MilestoneRule<null> = {
+      id: 'exit-spy',
+      init: () => null,
+      evaluate: (state, event, { currentView }) => {
+        if (event.type === 'view-exit') {
+          exits.push(`${currentView.id} ${currentView.url} -> ${event.nextEntry} ${event.nextUrl}`);
+        }
+        return unchanged(state);
+      },
+    };
 
     run(
-      [navigated('loader-a'), frameEvent(), navigated('loader-b')],
-      [spy],
+      [
+        navigated('loader-a', page('/')),
+        frameEvent(),
+        withinDocument(page('/b')),
+        navigated('loader-b', page('/elsewhere')),
+      ],
+      [exitSpy],
     );
 
-    expect(spy.seen[0]).toEqual(['frame', 'document-exit']);
-    // The second document starts clean.
-    expect(spy.seen[1]).toEqual([]);
+    expect(exits).toEqual([
+      `1 ${page('/')} -> route ${page('/b')}`,
+      `2 ${page('/b')} -> load ${page('/elsewhere')}`,
+    ]);
   });
 
-  it('evaluates document-exit once and returns what it captured', () => {
+  it("hands each rule its state from the view just left", () => {
+    const spy = spyRule('spy');
+
+    run([navigated('loader-a'), frameEvent(), withinDocument(page('/b'))], [spy]);
+
+    expect(spy.previous).toEqual([undefined, ['frame', 'view-exit']]);
+  });
+
+  it('keeps the frames seen across a route change, but not across a load', () => {
+    const engine = new RulesEngine(defaultDocumentRules);
+
+    engine.processEvent(navigated('loader-a', page('/')));
+    engine.processEvent(frameEvent({ scrollY: 40 }));
+
+    engine.processEvent(withinDocument(page('/b')));
+    expect(engine.currentState.currentView).toMatchObject({
+      firstFrameObserved: true,
+      lastFrame: { scrollY: 40 },
+    });
+
+    engine.processEvent(navigated('loader-b'));
+    expect(engine.currentState.currentView).toMatchObject({
+      firstFrameObserved: false,
+      lastFrame: null,
+    });
+  });
+
+  it('evaluates view-exit once and returns what it captured', () => {
     let exitEvaluations = 0;
 
     const onceOnExit: MilestoneRule<{ done: boolean }> = {
       id: 'once-on-exit',
       init: () => ({ done: false }),
-      evaluate: (state, event, { currentDocument, lastFrame }) => {
-        if (event.type !== 'document-exit' || state.done || !lastFrame) {
+      evaluate: (state, event, { currentView, lastFrame }) => {
+        if (event.type !== 'view-exit' || state.done || !lastFrame) {
           return unchanged(state);
         }
         exitEvaluations += 1;
         return {
           nextState: { done: true },
           captures: [
-            {
-              documentId: currentDocument.id,
-              loaderId: currentDocument.loaderId,
-              url: currentDocument.url,
+            captureFor(currentView, {
               label: 'exit',
               frame: lastFrame,
               detail: 'exit capture',
-            },
+            }),
           ],
         };
       },
@@ -147,13 +247,13 @@ describe('reduce', () => {
     const captures = engine.processEvent(navigated('loader-b'));
 
     expect(exitEvaluations).toBe(1);
-    // Captures from the departing document are returned by the navigation that
-    // replaced it, and they carry the departing document's identity.
+    // Captures from the departing view are returned by the navigation that
+    // replaced it, and they carry the departing view's identity.
     expect(captures.map((c) => c.label)).toEqual(['exit']);
-    expect(captures[0]?.documentId).toBe(1);
+    expect(captures[0]?.viewId).toBe(1);
     expect(captures[0]?.loaderId).toBe('loader-a');
 
-    // The incoming document starts from freshly initialized state, so the same
+    // The incoming view starts from freshly initialized state, so the same
     // rule is armed again rather than staying latched from the previous one.
     expect(engine.currentState.ruleStates['once-on-exit']).toEqual({
       done: false,
@@ -232,5 +332,52 @@ describe('document lifecycle rules', () => {
     expect(last?.label).toBe('99-before-navigation');
     expect(last?.frame.scrollY).toBe(120);
     expect(last?.detail).toContain('Session ending');
+  });
+
+  it('gives every route its own first frame and farewell, under its own URL', () => {
+    const captures = run(
+      [
+        navigated('loader-a', page('/')),
+        frameEvent({ scrollY: 10 }),
+        withinDocument(page('/b')),
+        frameEvent({ scrollY: 20 }),
+        withinDocument(page('/c')),
+        frameEvent({ scrollY: 30 }),
+        { type: 'stop' },
+      ],
+      defaultDocumentRules,
+    );
+
+    expect(
+      captures.map((c) => `${c.viewId} ${c.entry} ${c.url} ${c.label} ${c.frame.scrollY}`),
+    ).toEqual([
+      `1 load ${page('/')} 00-first 10`,
+      `1 load ${page('/')} 99-before-navigation 10`,
+      `2 route ${page('/b')} 00-first 20`,
+      `2 route ${page('/b')} 99-before-navigation 20`,
+      `3 route ${page('/c')} 00-first 30`,
+      `3 route ${page('/c')} 99-before-navigation 30`,
+    ]);
+    expect(captures[1]?.detail).toContain('Route change; next URL is');
+    expect(captures.every((c) => c.documentId === 1)).toBe(true);
+  });
+
+  it('captures a milestone once per document, even when it arms just before a route change', () => {
+    const captures = run(
+      [
+        navigated('loader-a', page('/')),
+        frameEvent(),
+        milestone('DOMContentLoaded', 'loader-a'),
+        withinDocument(page('/b')),
+        frameEvent({ scrollY: 7 }),
+        frameEvent(),
+      ],
+      defaultDocumentRules,
+    );
+
+    const dcl = captures.filter((c) => c.label === '01-domcontentloaded');
+    expect(dcl).toHaveLength(1);
+    // The first frame after it, which the new view is showing.
+    expect(dcl[0]).toMatchObject({ viewId: 2, url: page('/b'), frame: { scrollY: 7 } });
   });
 });

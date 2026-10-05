@@ -23,7 +23,7 @@ import { episodeLabel, InteractionLabel } from '@openuji/rules-interaction';
 import { createCompositorStream } from '@openuji/stream-compositor';
 import { createInteractionStream } from '@openuji/stream-interaction';
 import { createLifecycleStream } from '@openuji/stream-lifecycle';
-import { BUTTON, startFixtureServer, type FixtureServer } from './fixture.js';
+import { BUTTON, SPA, startFixtureServer, type FixtureServer } from './fixture.js';
 import { click, wheel } from './input.js';
 
 export interface HostUnderTest {
@@ -41,11 +41,13 @@ const preClick = episodeLabel(InteractionLabel.preClick, 1);
 const postClick = episodeLabel(InteractionLabel.postClick, 1);
 const preScroll = episodeLabel(InteractionLabel.preScroll, 1);
 const postScroll = episodeLabel(InteractionLabel.postScroll, 1);
+const postAutoScroll = episodeLabel(InteractionLabel.postAutoScroll, 1);
 
-const BUTTON_CENTER = {
-  x: BUTTON.x + BUTTON.width / 2,
-  y: BUTTON.y + BUTTON.height / 2,
-};
+type Rect = Readonly<{ x: number; y: number; width: number; height: number }>;
+
+const center = ({ x, y, width, height }: Rect) => ({ x: x + width / 2, y: y + height / 2 });
+
+const BUTTON_CENTER = center(BUTTON);
 
 /** Clear of the button, inside any viewport the hosts use. */
 const SCROLL_POINT = { x: 400, y: 400 };
@@ -185,6 +187,37 @@ export function describeHostConformance(name: string, host: HostUnderTest): void
         await lifecycle.stop();
       }));
 
+    it('lifecycle: reports a route change as a same-document navigation of the document it keeps', () =>
+      withTarget(async (target) => {
+        const spa = fixture.url('/spa');
+        const lifecycle = await createLifecycleStream(target.cdp);
+        const events = collect(lifecycle.events);
+
+        await target.navigate(spa);
+        await waitForLoaded(target.cdp, spa);
+
+        const { x, y } = center(SPA.link);
+        await click(target.cdp, x, y);
+
+        await vi.waitFor(() => {
+          const loaded = events.find(
+            (event) => event.type === 'navigated' && event.isMainFrame && event.url === spa,
+          );
+          expect(events).toContainEqual(
+            expect.objectContaining({
+              type: 'navigated',
+              isMainFrame: true,
+              url: fixture.url('/spa/b'),
+              sameDocument: true,
+              navigationType: 'historyApi',
+              loaderId: loaded?.loaderId,
+            }),
+          );
+        }, WAIT);
+
+        await lifecycle.stop();
+      }));
+
     it('compositor: keeps PNG frames flowing and reports scroll offsets', () =>
       withTarget(async (target) => {
         const url = fixture.url('/');
@@ -231,10 +264,22 @@ export function describeHostConformance(name: string, host: HostUnderTest): void
         }, WAIT);
 
         await wheel(target.cdp, SCROLL_POINT.x, SCROLL_POINT.y, 600);
-        await vi.waitFor(
-          () => expect(events.map((event) => event.action)).toContain('scrollend'),
-          WAIT,
-        );
+        await vi.waitFor(() => {
+          expect(events).toContainEqual(
+            expect.objectContaining({ action: 'scrollinput', input: 'wheel' }),
+          );
+          expect(events).toContainEqual(
+            expect.objectContaining({
+              action: 'scrollstart',
+              target: expect.objectContaining({ selector: 'window' }),
+              scroll: expect.objectContaining({ y: 0 }),
+            }),
+          );
+          const end = events.find((event) => event.action === 'scrollend');
+          expect(end?.target.selector).toBe('window');
+          expect(end?.scroll?.y).toBeGreaterThan(0);
+          expect(end?.scroll?.maxY).toBeGreaterThan(0);
+        }, WAIT);
 
         await interaction.stop();
       }));
@@ -293,6 +338,117 @@ export function describeHostConformance(name: string, host: HostUnderTest): void
         for (const capture of sink.captures) {
           expect(capture.frame.base64.startsWith(PNG_SIGNATURE_BASE64)).toBe(true);
         }
+      }));
+
+    it('pipeline: an SPA route change is a view of its own, and every capture has the URL showing', () =>
+      withTarget(async (target) => {
+        const spa = fixture.url('/spa');
+        const routeB = fixture.url('/spa/b');
+        const filtered = fixture.url('/spa/b?q=x');
+        const sink = new MemorySink();
+        const recording = await startRecording(target.cdp, {
+          sinks: [sink],
+          screencast: { viewport: target.viewport },
+        });
+
+        const waitForLabel = (label: string, url: string): Promise<void> =>
+          vi.waitFor(() => expect(sink.labels(url)).toContain(label), WAIT);
+
+        await target.navigate(spa);
+        await waitForLabel(DocumentLabel.settled, spa);
+
+        const link = center(SPA.link);
+        await click(target.cdp, link.x, link.y);
+        await waitForLabel(DocumentLabel.first, routeB);
+
+        const filter = center(SPA.filter);
+        await click(target.cdp, filter.x, filter.y);
+        await waitForLabel(postClick, filtered);
+
+        await recording.stop();
+
+        const view = (url: string) =>
+          sink.captures
+            .filter((capture) => capture.url === url)
+            .map((capture) => `${capture.viewId} ${capture.entry} ${capture.label}`);
+
+        // The click that changed the route keeps both its captures in the view
+        // it was clicked in: Chrome reports the click before the route change.
+        expect(view(spa)).toEqual(
+          expect.arrayContaining([
+            `1 load ${DocumentLabel.first}`,
+            `1 load ${preClick}`,
+            `1 load ${postClick}`,
+            `1 load ${DocumentLabel.beforeNavigation}`,
+          ]),
+        );
+        // A fresh view, numbering from 01 again.
+        expect(view(routeB)).toEqual([`2 route ${DocumentLabel.first}`, `2 route ${preClick}`]);
+        // A query-only update is not a new view, but the URL follows it.
+        expect(view(filtered)).toEqual([
+          `2 route ${postClick}`,
+          `2 route ${DocumentLabel.beforeNavigation}`,
+        ]);
+        expect(new Set(sink.captures.map((capture) => capture.documentId)).size).toBe(1);
+      }));
+
+    it('pipeline: a scroll the page makes itself is told apart from a person scrolling', () =>
+      withTarget(async (target) => {
+        const url = fixture.url('/');
+        const sink = new MemorySink();
+        const recording = await startRecording(target.cdp, {
+          sinks: [sink],
+          screencast: { viewport: target.viewport },
+        });
+
+        await target.navigate(url);
+        await vi.waitFor(() => expect(sink.labels(url)).toContain(DocumentLabel.settled), WAIT);
+
+        await target.cdp.send('Runtime.evaluate', { expression: 'scrollTo(0, 800)' });
+        await vi.waitFor(() => expect(sink.labels(url)).toContain(postAutoScroll), WAIT);
+
+        await recording.stop();
+
+        expect(sink.labels(url)).not.toContain(preScroll);
+        const auto = sink.captures.find((capture) => capture.label === postAutoScroll);
+        expect(auto?.scrollEpisode).toMatchObject({
+          origin: 'auto',
+          scroller: { selector: 'window' },
+          from: { y: 0 },
+          to: { y: 800 },
+        });
+      }));
+
+    it('pipeline: an element scrolling on its own is a scroll like any other', () =>
+      withTarget(async (target) => {
+        const spa = fixture.url('/spa');
+        const sink = new MemorySink();
+        const recording = await startRecording(target.cdp, {
+          sinks: [sink],
+          screencast: { viewport: target.viewport },
+        });
+
+        await target.navigate(spa);
+        await vi.waitFor(() => expect(sink.labels(spa)).toContain(DocumentLabel.settled), WAIT);
+
+        const pane = center(SPA.pane);
+        await wheel(target.cdp, pane.x, pane.y, 600);
+        await vi.waitFor(() => expect(sink.labels(spa)).toContain(postScroll), WAIT);
+
+        await recording.stop();
+
+        const pre = sink.captures.find((capture) => capture.label === preScroll);
+        const post = sink.captures.find((capture) => capture.label === postScroll);
+        expect(pre?.domTarget?.selector).toBe('div#pane');
+        expect(post?.scrollEpisode).toMatchObject({
+          origin: 'user',
+          input: 'wheel',
+          scroller: { selector: 'div#pane' },
+          from: { y: 0 },
+        });
+        expect(post?.scrollEpisode?.to?.y).toBeGreaterThan(0);
+        // The page itself never moved.
+        expect(post?.frame.scrollY).toBe(0);
       }));
 
     it('pipeline: attached to a loaded page, captures no milestone it did not see', () =>

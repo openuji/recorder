@@ -41,8 +41,10 @@ export class ConsoleSink implements CaptureSink {
     const sizeKb = (base64ByteLength(capture.frame.base64) / 1024).toFixed(1);
     const color = colorFor(capture.label);
 
+    const view = `NAV #${capture.viewId}${capture.entry === 'route' ? ' route' : ''}`;
+
     console.log(
-      `${color}★ [NAV #${capture.documentId}] ${capture.label.padEnd(20, ' ')}${RESET} | ` +
+      `${color}★ [${view}] ${capture.label.padEnd(20, ' ')}${RESET} | ` +
         `loader: ${loader} | ` +
         `frame #${capture.frame.index} (${sizeKb} KB) | ` +
         `${capture.detail}`,
@@ -54,6 +56,18 @@ export class ConsoleSink implements CaptureSink {
         `    ${GREY}↳ DOM: <${target.selector}> text:"${target.textSnippet ?? ''}" ` +
           `role:${target.role ?? '-'} at:(${target.clientX}, ${target.clientY}) ` +
           `rect:[${target.boundingRect.width}x${target.boundingRect.height}]${RESET}`,
+      );
+    }
+
+    const scroll = capture.scrollEpisode;
+    if (scroll) {
+      const position = (p: { x: number; y: number } | undefined): string =>
+        p ? `(${p.x}, ${p.y})` : '?';
+      const range = scroll.to ?? scroll.from;
+      console.log(
+        `    ${GREY}↳ scroll: ${scroll.origin}${scroll.input ? ` ${scroll.input}` : ''} ` +
+          `${position(scroll.from)} → ${position(scroll.to)}` +
+          `${range ? ` of max (${range.maxX}, ${range.maxY})` : ''}${RESET}`,
       );
     }
   }

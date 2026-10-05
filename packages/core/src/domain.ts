@@ -18,7 +18,12 @@
  *    (interactions).
  */
 
-import type { InteractionAction, TargetElementMeta } from './wire.js';
+import type {
+  InteractionAction,
+  ScrollInputKind,
+  ScrollPosition,
+  TargetElementMeta,
+} from './wire.js';
 
 export type CompositorFrame = Readonly<{
   index: number;
@@ -40,9 +45,12 @@ export type CompositorFrame = Readonly<{
 /** What the lifecycle source emits — straight into the fused stream. */
 export type LifecycleEvent =
   /**
-   * A frame now shows a new document: CDP `Page.frameNavigated`, or the
-   * document already showing when the source attached. `loaderId` is the
-   * document's identity.
+   * A frame now shows `url`. Either a new document — CDP `Page.frameNavigated`,
+   * or the document already showing when the source attached — or, with
+   * `sameDocument`, the same document under a new URL: CDP
+   * `Page.navigatedWithinDocument`, which is what `history.pushState`,
+   * `replaceState` and fragment changes produce. `loaderId` is the identity of
+   * the document the frame shows; a same-document navigation keeps it.
    */
   | Readonly<{
       type: 'navigated';
@@ -50,6 +58,9 @@ export type LifecycleEvent =
       isMainFrame: boolean;
       loaderId: string;
       url: string;
+      sameDocument: boolean;
+      /** What kind of same-document navigation; absent for a new document. */
+      navigationType?: 'fragment' | 'historyApi' | 'other';
       receivedAtMs: number;
     }>
   /**
@@ -83,12 +94,52 @@ export type InteractionEvent = Readonly<{
   target: TargetElementMeta;
   receivedAtMs: number;
   pageTimeMs: number;
+  /** As the probe sent it; see `InteractionWirePayload`. */
+  scroll?: ScrollPosition;
+  input?: ScrollInputKind;
 }>;
 
-export type DocumentState = Readonly<{
+/**
+ * What is known about one scroll episode — whatever scrolled, and whoever
+ * scrolled it.
+ */
+export type ScrollEpisode = Readonly<{
+  /** What scrolled; `selector` is `VIEWPORT_SELECTOR` for the page itself. */
+  scroller: TargetElementMeta;
+  /** `user` when scroll input came with it; `auto` when the page scrolled itself. */
+  origin: 'user' | 'auto';
+  /** What the person scrolled with; absent for `auto`. */
+  input?: ScrollInputKind;
+  /**
+   * The scroller's positions as the page reports them. Absent when the probe
+   * did not report this scroller — the page's frame offsets are still on the
+   * capture's frame — and `to` is absent until the episode settles.
+   */
+  from?: ScrollPosition;
+  to?: ScrollPosition;
+}>;
+
+/**
+ * How a view began: the main frame loaded a document, or the document showing
+ * changed route without reloading (an SPA navigation).
+ */
+export type ViewEntry = 'load' | 'route';
+
+/**
+ * One step of the user's journey — what the user is looking at between two
+ * navigations. A document load and an SPA route change both start one; the
+ * rules engine decides which navigations do, and rules only ever see views.
+ */
+export type ViewState = Readonly<{
+  /** Counts every view of the session; the output files are numbered by it. */
   id: number;
+  /** Counts loaded documents; the views of one document share it. */
+  documentId: number;
   loaderId: string;
+  /** The URL showing now. Same-document URL updates change it in place. */
   url: string;
+  entry: ViewEntry;
+  /** A frame has been seen since the document loaded. */
   firstFrameObserved: boolean;
   lastFrame: CompositorFrame | null;
 }>;
@@ -107,17 +158,17 @@ export type DomainEvent =
     }>
   /**
    * Synthesized by the rules engine — never produced by a stream. Emitted to
-   * every rule against the *departing* document just before a new main-frame
-   * document takes its place, so a rule can capture the final resting state.
+   * every rule against the *departing* view just before a new view takes its
+   * place, so a rule can capture the final resting state.
    */
   | Readonly<{
-      type: 'document-exit';
-      documentId: number;
-      loaderId: string;
+      type: 'view-exit';
+      viewId: number;
       url: string;
-      nextLoaderId: string;
       nextUrl: string;
-      /** Taken from the navigation that replaced the document. */
+      /** How the view taking its place begins. */
+      nextEntry: ViewEntry;
+      /** Taken from the navigation that replaced the view. */
       receivedAtMs: number;
     }>
   | Readonly<{
@@ -125,6 +176,8 @@ export type DomainEvent =
     }>;
 
 export type MilestoneCapture = Readonly<{
+  viewId: number;
+  entry: ViewEntry;
   documentId: number;
   loaderId: string;
   url: string;
@@ -132,12 +185,15 @@ export type MilestoneCapture = Readonly<{
   frame: CompositorFrame;
   detail: string;
   domTarget?: TargetElementMeta;
+  scrollEpisode?: ScrollEpisode;
 }>;
 
 export type InteractionLogRecord = Readonly<{
   sequence: number;
   timestamp: string; // ISO 8601
   epochMs: number;
+  viewId: number;
+  entry: ViewEntry;
   documentId: number;
   loaderId: string;
   url: string;
@@ -145,10 +201,12 @@ export type InteractionLogRecord = Readonly<{
   screenshotFile: string;
   screenshotPath: string;
   byteLength: number;
+  /** The page's scroll offset in the captured frame, as the compositor reports it. */
   scroll: Readonly<{
     x: number;
     y: number;
   }>;
   detail: string;
   domTarget?: TargetElementMeta;
+  scrollEpisode?: ScrollEpisode;
 }>;

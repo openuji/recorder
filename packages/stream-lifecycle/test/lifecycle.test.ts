@@ -6,6 +6,7 @@ import {
   collect,
   frameNavigated,
   lifecycleEvent,
+  navigatedWithinDocument,
   replayOnEnable,
   showingDocument,
 } from '../../cdp/test/events.js';
@@ -14,8 +15,8 @@ import {
 function summarize(events: readonly LifecycleEvent[]): string[] {
   return events.map(
     (e) =>
-      `${e.type === 'milestone' ? e.name : e.type} ${e.loaderId} ` +
-      (e.isMainFrame ? 'main' : 'sub'),
+      `${e.type === 'milestone' ? e.name : e.sameDocument ? 'navigated (same document)' : e.type} ` +
+      `${e.loaderId} ${e.isMainFrame ? 'main' : 'sub'}`,
   );
 }
 
@@ -87,6 +88,65 @@ describe('createLifecycleStream (standalone)', () => {
       'init loader-a main',
       'navigated loader-a main',
       'DOMContentLoaded loader-a main',
+    ]);
+  });
+
+  it('reports same-document navigations under the document they keep', async () => {
+    const cdp = createFakeCdpTransport();
+    const { events, stop } = await createLifecycleStream(cdp);
+
+    frameNavigated(cdp, 'loader-a', { url: 'https://app.example/' });
+    navigatedWithinDocument(cdp, 'https://app.example/inbox');
+    frameNavigated(cdp, 'loader-sub', { frameId: 'child', parentId: 'main' });
+    navigatedWithinDocument(cdp, 'https://ads.example/#slot', {
+      frameId: 'child',
+      navigationType: 'fragment',
+    });
+    await stop();
+
+    expect(await collect(events)).toMatchObject([
+      { type: 'navigated', loaderId: 'loader-a', sameDocument: false },
+      {
+        type: 'navigated',
+        frameId: 'main',
+        isMainFrame: true,
+        loaderId: 'loader-a',
+        url: 'https://app.example/inbox',
+        sameDocument: true,
+        navigationType: 'historyApi',
+      },
+      { type: 'navigated', loaderId: 'loader-sub', sameDocument: false },
+      {
+        type: 'navigated',
+        frameId: 'child',
+        isMainFrame: false,
+        loaderId: 'loader-sub',
+        sameDocument: true,
+        navigationType: 'fragment',
+      },
+    ]);
+  });
+
+  it('knows the documents showing at attach, subframes included', async () => {
+    const cdp = createFakeCdpTransport();
+    cdp.respond('Page.getFrameTree', {
+      frameTree: {
+        frame: { id: 'main', loaderId: 'loader-now', url: 'https://app.example/' },
+        childFrames: [
+          { frame: { id: 'child', parentId: 'main', loaderId: 'loader-sub', url: 'https://ads.example/' } },
+        ],
+      },
+    } as never);
+
+    const { events, stop } = await createLifecycleStream(cdp);
+    navigatedWithinDocument(cdp, 'https://app.example/inbox');
+    navigatedWithinDocument(cdp, 'https://ads.example/#2', { frameId: 'child' });
+    await stop();
+
+    expect(summarize(await collect(events))).toEqual([
+      'navigated loader-now main',
+      'navigated (same document) loader-now main',
+      'navigated (same document) loader-sub sub',
     ]);
   });
 

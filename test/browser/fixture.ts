@@ -45,7 +45,80 @@ const SECOND = `<!doctype html>
   <body><p>Second page.</p></body>
 </html>`;
 
-const PAGES: Readonly<Record<string, string>> = { '/': INDEX, '/second': SECOND };
+/** Where the SPA fixture puts its controls, in CSS pixels. */
+export const SPA = {
+  /** A router link: `pushState('/spa/b')`, then re-render. */
+  link: { x: 100, y: 100, width: 200, height: 60 },
+  /** Rewrites the query string only: `replaceState('?q=x')`. */
+  filter: { x: 100, y: 200, width: 200, height: 60 },
+  /** A scroll container of its own, as in an app shell. */
+  pane: { x: 360, y: 100, width: 280, height: 240 },
+} as const;
+
+const box = ({ x, y, width, height }: { x: number; y: number; width: number; height: number }) =>
+  `position: absolute; left: ${x}px; top: ${y}px; width: ${width}px; height: ${height}px;`;
+
+/**
+ * A single-page app: one document, routes switched by the History API, and a
+ * pane that scrolls on its own. Served at `/spa` and `/spa/b`, the way an SPA
+ * server answers every route with the same shell.
+ */
+const SPA_PAGE = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>uxr fixture, spa</title>
+    <style>
+      body { margin: 0; height: 4000px; font: 16px sans-serif; }
+      #to-b { ${box(SPA.link)} display: block; }
+      #filter { ${box(SPA.filter)} }
+      #pane { ${box(SPA.pane)} overflow: auto; border: 1px solid #888; }
+      #pane > div { height: 3000px; background: linear-gradient(#fff, #69c); }
+      #route { position: fixed; left: 8px; bottom: 8px; }
+      #tick { position: fixed; right: 8px; bottom: 8px; }
+    </style>
+  </head>
+  <body>
+    <a id="to-b" href="/spa/b">To route B</a>
+    <button id="filter">Filter</button>
+    <div id="pane"><div>pane</div></div>
+    <span id="route"></span>
+    <span id="tick">0</span>
+    <script>
+      const tick = document.getElementById('tick');
+      let n = 0;
+      const loop = () => {
+        tick.textContent = String(++n);
+        requestAnimationFrame(loop);
+      };
+      requestAnimationFrame(loop);
+
+      const route = document.getElementById('route');
+      const render = () => {
+        route.textContent = location.pathname + location.search;
+        document.body.style.background =
+          location.pathname === '/spa/b' ? '#eef' : '#fff';
+      };
+      document.getElementById('to-b').addEventListener('click', (event) => {
+        event.preventDefault();
+        history.pushState(null, '', '/spa/b');
+        render();
+      });
+      document.getElementById('filter').addEventListener('click', () => {
+        history.replaceState(null, '', location.pathname + '?q=x');
+        render();
+      });
+      render();
+    </script>
+  </body>
+</html>`;
+
+const PAGES: Readonly<Record<string, string>> = {
+  '/': INDEX,
+  '/second': SECOND,
+  '/spa': SPA_PAGE,
+  '/spa/b': SPA_PAGE,
+};
 
 export interface FixtureServer {
   /** Absolute URL of a fixture path, e.g. `url('/')`. */
@@ -56,7 +129,7 @@ export interface FixtureServer {
 /** Serves the fixture pages on a free loopback port. */
 export async function startFixtureServer(): Promise<FixtureServer> {
   const server = createServer((req, res) => {
-    const page = PAGES[req.url ?? ''];
+    const page = PAGES[(req.url ?? '').split('?')[0] ?? ''];
     if (page === undefined) {
       res.writeHead(404).end();
       return;

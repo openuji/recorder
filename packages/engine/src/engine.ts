@@ -1,6 +1,12 @@
 import type { DomainEvent, MilestoneCapture } from '@openuji/core';
 import type { MilestoneRule } from './rule.js';
 import { initialEngineState, reduce, type EngineState } from './reduce.js';
+import { pathOrHashRoute, type RoutePolicy } from './view.js';
+
+export interface RulesEngineOptions {
+  /** Which same-document URL changes start a new view. Default `pathOrHashRoute`. */
+  readonly routePolicy?: RoutePolicy;
+}
 
 /**
  * Stateful wrapper around the pure `reduce`. All the logic lives in the
@@ -10,10 +16,12 @@ import { initialEngineState, reduce, type EngineState } from './reduce.js';
 export class RulesEngine {
   private state: EngineState = initialEngineState;
   private readonly rules: readonly MilestoneRule[];
+  private readonly routePolicy: RoutePolicy;
 
-  constructor(rules: readonly MilestoneRule[]) {
+  constructor(rules: readonly MilestoneRule[], options: RulesEngineOptions = {}) {
     assertUniqueRuleIds(rules);
     this.rules = rules;
+    this.routePolicy = options.routePolicy ?? pathOrHashRoute;
   }
 
   public get currentState(): EngineState {
@@ -21,7 +29,12 @@ export class RulesEngine {
   }
 
   public processEvent(event: DomainEvent): readonly MilestoneCapture[] {
-    const { state, captures } = reduce(this.state, event, this.rules);
+    const { state, captures } = reduce(
+      this.state,
+      event,
+      this.rules,
+      this.routePolicy,
+    );
     this.state = state;
     return captures;
   }

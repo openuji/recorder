@@ -6,6 +6,7 @@ import {
   click,
   navigated,
   frameEvent,
+  withinDocument,
 } from '../../engine/test/helpers.js';
 
 function run(
@@ -137,5 +138,49 @@ describe('ClickEpisodeRule', () => {
       '10-pre-click-01',
       '11-post-click-01',
     ]);
+  });
+
+  it('restarts numbering for a new route', () => {
+    const captures = run([
+      navigated('loader-a', 'https://app.example/'),
+      frameEvent(),
+      click(),
+      frameEvent(),
+      withinDocument('https://app.example/inbox'),
+      frameEvent(),
+      click(),
+      frameEvent(),
+    ]);
+
+    expect(captures.map((c) => `${c.viewId} ${c.label}`)).toEqual([
+      '1 10-pre-click-01',
+      '1 11-post-click-01',
+      '2 10-pre-click-01',
+      '2 11-post-click-01',
+    ]);
+  });
+
+  it('keeps the post-click of a click that changes the route, under the view it was clicked in', () => {
+    const captures = run([
+      navigated('loader-a', 'https://app.example/'),
+      frameEvent({ scrollY: 1 }),
+      click('a#inbox'),
+      // An SPA link: the route changes before anything is painted.
+      withinDocument('https://app.example/inbox'),
+      frameEvent({ scrollY: 2 }),
+      click('button#compose'),
+      frameEvent({ scrollY: 3 }),
+    ]);
+
+    expect(
+      captures.map((c) => `${c.viewId} ${c.url} ${c.label} ${c.domTarget?.selector} ${c.frame.scrollY}`),
+    ).toEqual([
+      '1 https://app.example/ 10-pre-click-01 a#inbox 1',
+      // The frame after the click shows the new route; the pair stays together.
+      '1 https://app.example/ 11-post-click-01 a#inbox 2',
+      '2 https://app.example/inbox 10-pre-click-01 button#compose 2',
+      '2 https://app.example/inbox 11-post-click-01 button#compose 3',
+    ]);
+    expect(captures[1]?.detail).toContain('now showing https://app.example/inbox');
   });
 });

@@ -9,7 +9,14 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
+
+/**
+ * The wire contract is bundled from source: the probe is built before `tsc`
+ * (`pnpm test` builds nothing else), so core's `dist` may be stale or absent.
+ */
+const WIRE_SOURCE = fileURLToPath(new URL('../core/src/wire.ts', import.meta.url));
 
 /**
  * @param {object} options
@@ -37,6 +44,7 @@ export async function buildClientSource({
     target: 'chrome120',
     minify: false,
     legalComments: 'none',
+    alias: { '@openuji/core/wire': WIRE_SOURCE },
     write: false,
   });
 

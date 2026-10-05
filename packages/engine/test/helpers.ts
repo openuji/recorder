@@ -1,4 +1,10 @@
-import type { CompositorFrame, DomainEvent, TargetElementMeta } from '@openuji/core';
+import type {
+  CompositorFrame,
+  DomainEvent,
+  ScrollInputKind,
+  ScrollPosition,
+  TargetElementMeta,
+} from '@openuji/core';
 
 let nextFrameIndex = 0;
 
@@ -30,6 +36,25 @@ export function navigated(loaderId: string, url = `https://example.com/${loaderI
     isMainFrame: true,
     loaderId,
     url,
+    sameDocument: false,
+    receivedAtMs: 0,
+  };
+}
+
+/** A same-document navigation — `pushState`, `replaceState`, a fragment. */
+export function withinDocument(
+  url: string,
+  loaderId = 'loader-a',
+  overrides: { isMainFrame?: boolean; navigationType?: 'fragment' | 'historyApi' | 'other' } = {},
+): DomainEvent {
+  return {
+    type: 'navigated',
+    frameId: overrides.isMainFrame === false ? 'child' : 'main',
+    isMainFrame: overrides.isMainFrame ?? true,
+    loaderId,
+    url,
+    sameDocument: true,
+    navigationType: overrides.navigationType ?? 'historyApi',
     receivedAtMs: 0,
   };
 }
@@ -66,12 +91,42 @@ export function click(selector?: string): DomainEvent {
   };
 }
 
-export function scrollEnd(): DomainEvent {
+/** A position as the probe reports it; `maxY` defaults to a long page. */
+export function position(y: number, x = 0): ScrollPosition {
+  return { x, y, maxX: 0, maxY: 3000 };
+}
+
+/** A scroller begins to move: the page (`window`) unless a selector says which. */
+export function scrollStart(selector = 'window', scroll?: ScrollPosition): DomainEvent {
+  return {
+    type: 'interaction',
+    action: 'scrollstart',
+    target: target(selector),
+    receivedAtMs: 0,
+    pageTimeMs: 0,
+    ...(scroll ? { scroll } : {}),
+  };
+}
+
+export function scrollEnd(selector = 'window', scroll?: ScrollPosition): DomainEvent {
   return {
     type: 'interaction',
     action: 'scrollend',
+    target: target(selector),
+    receivedAtMs: 0,
+    pageTimeMs: 0,
+    ...(scroll ? { scroll } : {}),
+  };
+}
+
+/** A person used something that scrolls. */
+export function scrollInput(input: ScrollInputKind = 'wheel'): DomainEvent {
+  return {
+    type: 'interaction',
+    action: 'scrollinput',
     target: target('window'),
     receivedAtMs: 0,
     pageTimeMs: 0,
+    input,
   };
 }

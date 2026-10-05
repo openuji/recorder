@@ -23,12 +23,14 @@ export async function click(cdp: CdpTransport, x: number, y: number): Promise<vo
   });
 }
 
+/** The pointer moves over the point first, as a person's does before wheeling. */
 export async function wheel(
   cdp: CdpTransport,
   x: number,
   y: number,
   deltaY: number,
 ): Promise<void> {
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await cdp.send('Input.dispatchMouseEvent', {
     type: 'mouseWheel',
     x,

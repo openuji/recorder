@@ -36,8 +36,11 @@ runMain(async () => {
           const received = elapsed(event.receivedAtMs - baseline);
 
           if (event.type === 'navigated') {
+            const kind = event.sameDocument
+              ? ` (same document, ${event.navigationType ?? 'other'})`
+              : '';
             console.log(
-              `\x1b[32m${scope} NAVIGATED${RESET} | ${ids} | ${received} | ` +
+              `\x1b[32m${scope} NAVIGATED${RESET}${kind} | ${ids} | ${received} | ` +
                 `url: ${event.url}`,
             );
             continue;

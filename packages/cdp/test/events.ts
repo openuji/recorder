@@ -45,6 +45,22 @@ export function frameNavigated(
   });
 }
 
+/** What `history.pushState`, `replaceState` and fragment changes produce. */
+export function navigatedWithinDocument(
+  cdp: FakeCdpTransport,
+  url: string,
+  options: {
+    frameId?: string;
+    navigationType?: 'fragment' | 'historyApi' | 'other';
+  } = {},
+): void {
+  cdp.emit('Page.navigatedWithinDocument', {
+    frameId: options.frameId ?? 'main',
+    url,
+    navigationType: options.navigationType ?? 'historyApi',
+  });
+}
+
 export function lifecycleEvent(
   cdp: FakeCdpTransport,
   name: string,

@@ -14,9 +14,10 @@ export * from './before-navigation.js';
 /**
  * Document-lifecycle rules, in label order.
  *
- * Every rule here is one-shot per document and scoped to its `loaderId`: the
- * engine re-initializes all of them when the main frame navigates to a new
- * document.
+ * First frame and before-navigation are one-shot per view: every view — a
+ * document load or a route change — gets its own pair. The lifecycle milestones
+ * are one-shot per document, scoped to its `loaderId`, since only a document
+ * load produces them.
  */
 export const defaultDocumentRules: readonly MilestoneRule[] = [
   FirstFrameRule,

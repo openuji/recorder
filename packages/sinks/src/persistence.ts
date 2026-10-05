@@ -44,13 +44,16 @@ export class PersistenceSink implements CaptureSink {
 
   public enqueue(capture: MilestoneCapture): void {
     const sequence = ++this.sequence;
-    const filename = `nav-${String(capture.documentId).padStart(5, '0')}-${capture.label}.png`;
+    // One number per view: a page load and an SPA route change each start one.
+    const filename = `nav-${String(capture.viewId).padStart(5, '0')}-${capture.label}.png`;
     const screenshotPath = join(this.outDir, filename);
 
     const record: InteractionLogRecord = {
       sequence,
       timestamp: new Date().toISOString(),
       epochMs: Date.now(),
+      viewId: capture.viewId,
+      entry: capture.entry,
       documentId: capture.documentId,
       loaderId: capture.loaderId,
       url: capture.url,
@@ -64,6 +67,7 @@ export class PersistenceSink implements CaptureSink {
       },
       detail: capture.detail,
       ...(capture.domTarget ? { domTarget: capture.domTarget } : {}),
+      ...(capture.scrollEpisode ? { scrollEpisode: capture.scrollEpisode } : {}),
     };
 
     const line = `${JSON.stringify(record)}\n`;

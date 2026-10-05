@@ -8,6 +8,7 @@ import {
   clickPayload,
   frameNavigated,
   lifecycleEvent,
+  navigatedWithinDocument,
   replayOnEnable,
   screencastFrame,
   showingDocument,
@@ -68,6 +69,42 @@ describe('startRecording', () => {
     expect(byLabel.get('11-post-click-01')?.frame.base64).toBe('YWZ0ZXI=');
     expect(byLabel.get('11-post-click-01')?.domTarget?.selector).toBe('button#go');
     expect(sink.drained).toBe(1);
+  });
+
+  it('records an SPA route change as a view of its own', async () => {
+    const cdp = createFakeCdpTransport();
+    const sink = new MemorySink();
+    const recording = await startRecording(cdp, { sinks: [sink], screencast });
+
+    frameNavigated(cdp, 'loader-a', { url: 'https://app.example/' });
+    screencastFrame(cdp, { data: 'aG9tZQ==' });
+    bindingCalled(cdp, PROBE_BINDING_NAME, clickPayload('a#inbox'));
+    navigatedWithinDocument(cdp, 'https://app.example/inbox');
+    screencastFrame(cdp, { data: 'aW5ib3g=' });
+    navigatedWithinDocument(cdp, 'https://app.example/inbox?unread=1');
+    bindingCalled(cdp, PROBE_BINDING_NAME, clickPayload('button#compose'));
+    screencastFrame(cdp);
+    await settle();
+    await recording.stop();
+
+    expect(sink.captures.map((c) => `${c.viewId} ${c.url} ${c.label}`)).toEqual([
+      '1 https://app.example/ 00-first',
+      '1 https://app.example/ 10-pre-click-01',
+      '1 https://app.example/ 99-before-navigation',
+      // One frame, two captures, in rule order: document rules come first.
+      '2 https://app.example/inbox 00-first',
+      '1 https://app.example/ 11-post-click-01',
+      // A query-only update keeps the view, but no stale URL.
+      '2 https://app.example/inbox?unread=1 10-pre-click-01',
+      '2 https://app.example/inbox?unread=1 11-post-click-01',
+      '2 https://app.example/inbox?unread=1 99-before-navigation',
+    ]);
+    const byLabel = (viewId: number, label: string) =>
+      sink.captures.find((c) => c.viewId === viewId && c.label === label);
+    // What the route-changing click did is the new route's first frame.
+    expect(byLabel(1, '11-post-click-01')?.frame.base64).toBe('aW5ib3g=');
+    expect(byLabel(2, '00-first')?.frame.base64).toBe('aW5ib3g=');
+    expect(new Set(sink.captures.map((c) => c.documentId))).toEqual(new Set([1]));
   });
 
   it('attached to an already-loaded page, does not capture milestones it never saw', async () => {

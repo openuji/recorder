@@ -1,14 +1,24 @@
 import type {
-  DocumentState,
   DomainEvent,
   MilestoneCapture,
+  ViewEntry,
+  ViewState,
 } from '@openuji/core';
 import type { MilestoneRule, RuleContext } from './rule.js';
+import {
+  classifyNavigation,
+  enterView,
+  pathOrHashRoute,
+  type NavigatedEvent,
+  type RoutePolicy,
+} from './view.js';
 
 export type EngineState = Readonly<{
-  mainFrameId: string | null;
-  nextDocumentId: number;
-  currentDocument: DocumentState | null;
+  /** Views entered so far — also the id of the current one. */
+  viewCount: number;
+  /** Documents loaded so far — also the current view's `documentId`. */
+  documentCount: number;
+  currentView: ViewState | null;
   /** Per-rule opaque state, keyed by rule id. */
   ruleStates: Readonly<Record<string, unknown>>;
 }>;
@@ -19,9 +29,9 @@ export interface ReduceResult {
 }
 
 export const initialEngineState: EngineState = Object.freeze({
-  mainFrameId: null,
-  nextDocumentId: 0,
-  currentDocument: null,
+  viewCount: 0,
+  documentCount: 0,
+  currentView: null,
   ruleStates: Object.freeze({}),
 });
 
@@ -46,25 +56,75 @@ function evaluateRules(
   return { ruleStates: nextStates, captures };
 }
 
-function initRuleStates(
+/**
+ * The view boundary — the same for a document load and a route change.
+ *
+ * Every rule first sees `view-exit` against the *departing* view, so
+ * final-state captures still see its `lastFrame`. Each rule then initializes
+ * for the new view from its state after that exit. The navigation itself is
+ * not passed on: rules start from the view, not from the event producing it.
+ */
+function enter(
+  state: EngineState,
+  event: NavigatedEvent,
+  entry: ViewEntry,
   rules: readonly MilestoneRule[],
-  doc: DocumentState,
-): Record<string, unknown> {
-  const states: Record<string, unknown> = {};
-  for (const rule of rules) {
-    states[rule.id] = rule.init(doc);
+): ReduceResult {
+  const departing = state.currentView;
+  let ruleStates = state.ruleStates;
+  let captures: MilestoneCapture[] = [];
+
+  if (departing) {
+    const exit = evaluateRules(
+      rules,
+      ruleStates,
+      {
+        type: 'view-exit',
+        viewId: departing.id,
+        url: departing.url,
+        nextUrl: event.url,
+        nextEntry: entry,
+        receivedAtMs: event.receivedAtMs,
+      },
+      {
+        currentView: departing,
+        lastFrame: departing.lastFrame,
+        currentFrame: null,
+      },
+    );
+    ruleStates = exit.ruleStates;
+    captures = exit.captures;
   }
-  return states;
+
+  const view = enterView(departing, event, entry, {
+    views: state.viewCount,
+    documents: state.documentCount,
+  });
+
+  const initialized: Record<string, unknown> = {};
+  for (const rule of rules) {
+    initialized[rule.id] = rule.init(view, ruleStates[rule.id]);
+  }
+
+  return {
+    state: {
+      viewCount: view.id,
+      documentCount: view.documentId,
+      currentView: view,
+      ruleStates: initialized,
+    },
+    captures,
+  };
 }
 
 /**
  * The whole engine, as one pure function.
  *
  * Ordering here is load-bearing:
- *  1. A new main-frame document first gives every rule a `document-exit` event
- *     against the *departing* document, so final-state captures still see that
- *     document's `lastFrame`.
- *  2. Rules then evaluate against the current document.
+ *  1. A navigation that starts a new view goes through {@link enter} and stops
+ *     there. One that only changes the URL showing updates it in place, so the
+ *     rules below already see the new URL.
+ *  2. Rules then evaluate against the current view.
  *  3. Only afterwards does `lastFrame` advance to the frame this event carried.
  *     That gap is what lets one rule capture the resting frame *before* an
  *     event while another captures the frame *after* it.
@@ -73,91 +133,41 @@ export function reduce(
   state: EngineState,
   event: DomainEvent,
   rules: readonly MilestoneRule[],
+  routePolicy: RoutePolicy = pathOrHashRoute,
 ): ReduceResult {
-  let working = state;
-  const exitCaptures: MilestoneCapture[] = [];
+  let currentView = state.currentView;
 
-  if (event.type === 'navigated' && event.isMainFrame) {
-    const current = working.currentDocument;
+  if (event.type === 'navigated') {
+    const outcome = classifyNavigation(currentView, event, routePolicy);
 
-    if (current && current.loaderId === event.loaderId) {
-      // Redirection or URL update under the same loader: the document lives on,
-      // so rule state is preserved and evaluation continues below.
-      working = {
-        ...working,
-        currentDocument: { ...current, url: event.url },
-      };
-    } else {
-      if (current) {
-        const exitEvent: DomainEvent = {
-          type: 'document-exit',
-          documentId: current.id,
-          loaderId: current.loaderId,
-          url: current.url,
-          nextLoaderId: event.loaderId,
-          nextUrl: event.url,
-          receivedAtMs: event.receivedAtMs,
-        };
-
-        const exit = evaluateRules(rules, working.ruleStates, exitEvent, {
-          currentDocument: current,
-          lastFrame: current.lastFrame,
-          currentFrame: null,
-        });
-
-        working = { ...working, ruleStates: exit.ruleStates };
-        exitCaptures.push(...exit.captures);
-      }
-
-      const id = working.nextDocumentId + 1;
-      const newDocument: DocumentState = {
-        id,
-        loaderId: event.loaderId,
-        url: event.url,
-        firstFrameObserved: false,
-        lastFrame: null,
-      };
-
-      // The navigation that created this document is deliberately not passed
-      // to the freshly initialized rules; they start from the document, not
-      // from the event that produced it.
-      return {
-        state: {
-          mainFrameId: event.frameId,
-          nextDocumentId: id,
-          currentDocument: newDocument,
-          ruleStates: initRuleStates(rules, newDocument),
-        },
-        captures: exitCaptures,
-      };
+    if (outcome?.kind === 'new-view') {
+      return enter(state, event, outcome.entry, rules);
+    }
+    if (outcome?.kind === 'url-update' && currentView) {
+      currentView = { ...currentView, url: event.url };
     }
   }
 
-  const currentDocument = working.currentDocument;
-  if (!currentDocument) {
-    return { state: working, captures: exitCaptures };
+  if (!currentView) {
+    return { state, captures: [] };
   }
 
   const currentFrame = event.type === 'frame' ? event.frame : null;
 
-  const evaluated = evaluateRules(rules, working.ruleStates, event, {
-    currentDocument,
-    lastFrame: currentDocument.lastFrame,
+  const evaluated = evaluateRules(rules, state.ruleStates, event, {
+    currentView,
+    lastFrame: currentView.lastFrame,
     currentFrame,
   });
 
   return {
     state: {
-      ...working,
-      currentDocument: currentFrame
-        ? {
-            ...currentDocument,
-            firstFrameObserved: true,
-            lastFrame: currentFrame,
-          }
-        : currentDocument,
+      ...state,
+      currentView: currentFrame
+        ? { ...currentView, firstFrameObserved: true, lastFrame: currentFrame }
+        : currentView,
       ruleStates: evaluated.ruleStates,
     },
-    captures: [...exitCaptures, ...evaluated.captures],
+    captures: evaluated.captures,
   };
 }

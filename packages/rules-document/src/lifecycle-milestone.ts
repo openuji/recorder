@@ -1,7 +1,9 @@
-import { unchanged, type MilestoneRule } from '@openuji/engine';
+import { captureFor, unchanged, type MilestoneRule } from '@openuji/engine';
 import { DocumentLabel } from './labels.js';
 
 export type LifecycleMilestoneState = Readonly<{
+  /** The document this state belongs to. */
+  loaderId: string;
   /** A matching lifecycle notification arrived; capture the next frame. */
   armed: boolean;
   /** Already captured once for this document. */
@@ -29,6 +31,10 @@ export interface LifecycleMilestoneOptions {
  *
  * One rule per milestone: enabling or disabling a milestone is an entry in the
  * rule array rather than another pair of flags inside a shared rule.
+ *
+ * Milestones belong to documents, not views, so the one-shot is per document:
+ * across a route change the state carries over, and a milestone that armed
+ * just before it is captured on the new view's first frame.
  */
 export function lifecycleMilestoneRule({
   id,
@@ -38,12 +44,15 @@ export function lifecycleMilestoneRule({
 }: LifecycleMilestoneOptions): MilestoneRule<LifecycleMilestoneState> {
   return {
     id,
-    init: () => ({ armed: false, fired: false }),
-    evaluate: (state, event, { currentDocument, currentFrame }) => {
+    init: (view, previous) =>
+      previous?.loaderId === view.loaderId
+        ? previous
+        : { loaderId: view.loaderId, armed: false, fired: false },
+    evaluate: (state, event, { currentView, currentFrame }) => {
       if (event.type === 'milestone') {
         if (
           event.name !== milestone ||
-          event.loaderId !== currentDocument.loaderId ||
+          event.loaderId !== currentView.loaderId ||
           state.fired
         ) {
           return unchanged(state);
@@ -53,17 +62,8 @@ export function lifecycleMilestoneRule({
 
       if (event.type === 'frame' && currentFrame && state.armed && !state.fired) {
         return {
-          nextState: { armed: false, fired: true },
-          captures: [
-            {
-              documentId: currentDocument.id,
-              loaderId: currentDocument.loaderId,
-              url: currentDocument.url,
-              label,
-              frame: currentFrame,
-              detail,
-            },
-          ],
+          nextState: { ...state, armed: false, fired: true },
+          captures: [captureFor(currentView, { label, frame: currentFrame, detail })],
         };
       }
 

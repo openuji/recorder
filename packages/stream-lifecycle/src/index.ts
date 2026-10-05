@@ -1,4 +1,9 @@
-import type { CdpEventParams, CdpTransport, Detach } from '@openuji/cdp';
+import type {
+  CdpEventParams,
+  CdpResult,
+  CdpTransport,
+  Detach,
+} from '@openuji/cdp';
 import {
   createPushStream,
   type LifecycleEvent,
@@ -6,6 +11,7 @@ import {
 } from '@openuji/core';
 
 type Frame = CdpEventParams<'Page.frameNavigated'>['frame'];
+type FrameTree = CdpResult<'Page.getFrameTree'>['frameTree'];
 
 export interface LifecycleStreamHandle {
   events: AsyncIterable<LifecycleEvent>;
@@ -14,8 +20,9 @@ export interface LifecycleStreamHandle {
 }
 
 /**
- * Attaches the lifecycle source: navigations and lifecycle milestones,
- * emitted synchronously from inside the CDP event handlers.
+ * Attaches the lifecycle source: navigations — to a new document or within
+ * the same one — and lifecycle milestones, emitted synchronously from inside
+ * the CDP event handlers.
  *
  * Only milestones that happen while we watch are reported — never the ones the
  * page had already reached when we attached.
@@ -25,11 +32,40 @@ export async function attachLifecycle(
   emit: (event: LifecycleEvent) => void,
 ): Promise<Detach> {
   let mainFrameId: string | null = null;
+  // Which document each frame shows. A same-document navigation does not say,
+  // and it keeps the document, so it is looked up here.
+  const loaders = new Map<string, string>();
 
   const offCommits = cdp.on('Page.frameNavigated', ({ frame }, { receivedAtMs }) => {
     if (!frame.parentId) mainFrameId = frame.id;
+    loaders.set(frame.id, frame.loaderId);
     emit(navigated(frame, receivedAtMs));
   });
+
+  const offWithinDocument = cdp.on(
+    'Page.navigatedWithinDocument',
+    ({ frameId, url, navigationType }, { receivedAtMs }) =>
+      emit({
+        type: 'navigated',
+        frameId,
+        isMainFrame: frameId === mainFrameId,
+        loaderId: loaders.get(frameId) ?? '',
+        url,
+        sameDocument: true,
+        navigationType,
+        receivedAtMs,
+      }),
+  );
+
+  const offDetached = cdp.on('Page.frameDetached', ({ frameId }) => {
+    loaders.delete(frameId);
+  });
+
+  const offAll = (): void => {
+    offCommits();
+    offWithinDocument();
+    offDetached();
+  };
 
   try {
     await cdp.send('Page.enable');
@@ -39,6 +75,7 @@ export async function attachLifecycle(
     // frame, but it is not reported.
     const tree = await cdp.send('Page.getFrameTree').catch(() => null);
     const root = tree?.frameTree?.frame;
+    if (tree?.frameTree) rememberLoaders(tree.frameTree, loaders);
     if (root) mainFrameId = root.id;
     if (root && root.url !== 'about:blank') emit(navigated(root, cdp.now()));
 
@@ -48,7 +85,7 @@ export async function attachLifecycle(
     // must be something we actually witnessed.
     await cdp.send('Page.setLifecycleEventsEnabled', { enabled: true });
   } catch (err) {
-    offCommits();
+    offAll();
     throw err;
   }
 
@@ -68,7 +105,7 @@ export async function attachLifecycle(
     await cdp
       .send('Page.setLifecycleEventsEnabled', { enabled: false })
       .catch(() => {});
-    offCommits();
+    offAll();
     offMilestones();
   };
 }
@@ -81,8 +118,15 @@ function navigated(frame: Frame, receivedAtMs: number): LifecycleEvent {
     isMainFrame: !frame.parentId,
     loaderId: frame.loaderId,
     url: frame.url,
+    sameDocument: false,
     receivedAtMs,
   };
+}
+
+/** Records the document of every frame in an attach-time frame tree. */
+function rememberLoaders(tree: FrameTree, loaders: Map<string, string>): void {
+  loaders.set(tree.frame.id, tree.frame.loaderId);
+  for (const child of tree.childFrames ?? []) rememberLoaders(child, loaders);
 }
 
 /**

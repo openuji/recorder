@@ -17,14 +17,20 @@ pnpm start https://my.fu-berlin.de/
 Interact with the page, then press Ctrl+C. Artifacts land in
 `recordings/session-<timestamp>/`.
 
+Captures are grouped by **view**: one step of the user's journey. A page load
+starts a view, and so does an SPA route change. `nav-00001` is the first view,
+`nav-00002` the next, whichever way it began.
+
 | Artifact | Meaning |
 | --- | --- |
-| `interactions.ndjson` | One record per capture: screenshot path, scroll offset, DOM target |
-| `nav-00001-00-first.png` | First compositor paint of the document |
+| `interactions.ndjson` | One record per capture: screenshot path, view, URL showing, scroll offset, DOM target, scroll episode |
+| `nav-00001-00-first.png` | First compositor paint of the view |
 | `nav-00001-01-domcontentloaded.png` | Frame following `DOMContentLoaded` |
 | `nav-00001-02-settled.png` | Frame following `networkAlmostIdle` |
-| `nav-00001-03-pre-scroll-01.png` | Resting frame before scroll episode 1 |
-| `nav-00001-04-post-scroll-01.png` | Settled frame after scroll episode 1 |
+| `nav-00001-03-pre-scroll-01.png` | Resting frame before the person's scroll 1, of the page or any element |
+| `nav-00001-04-post-scroll-01.png` | Settled frame after it |
+| `nav-00001-05-pre-auto-scroll-01.png` | Resting frame before the page's own scroll 1 (router reset, scroll to an error) |
+| `nav-00001-06-post-auto-scroll-01.png` | Settled frame after it |
 | `nav-00001-10-pre-click-01.png` | Visual state immediately before click 1 (+ DOM target) |
 | `nav-00001-11-post-click-01.png` | Compositor response to click 1 (+ DOM target) |
 | `nav-00001-99-before-navigation.png` | Final visible frame before navigating away or ending |
@@ -74,6 +80,64 @@ transport, so tests run on a manual one. Source times keep their own clock under
 seconds from an arbitrary origin) and `pageTimeMs` (the page's clock, epoch ms).
 Never subtract one clock from another.
 
+### Views: page loads and SPA routes alike
+
+To the user, a new page and a new SPA route are the same thing: a next step.
+The lifecycle source reports both as `navigated`; a same-document one
+(`history.pushState`, `replaceState`, a fragment change) carries
+`sameDocument: true` and keeps its document's `loaderId`. One engine module,
+`view.ts`, decides what a navigation means:
+
+- **a new view**: a new document, or a same-document change the route
+  policy accepts. The default, `pathOrHashRoute`, accepts a change of path or of
+  a hash route (`#/…`, `#!/…`). Pass your own as `routePolicy` to
+  `startRecording`.
+- **a URL update**: a query-only change or an anchor jump. The view goes on, and
+  later captures carry the new URL.
+
+Everything downstream sees only views. At every boundary each rule gets a
+`view-exit` against the departing view (the `99-before-navigation` capture),
+then starts again for the new one, so `00-first` and episode numbering start
+over. A rule can carry what it still owes into the next view through
+`init(view, previous)`. The click rule uses this: the post-click of a link that
+changes the route is filed with its pre-click, under the view it was clicked
+in. Records carry `viewId`, `entry` (`load` or `route`), `documentId` and the
+`url` showing at capture time.
+
+### Scroll: whatever scrolls, whoever scrolls it
+
+A scroll episode is the same thing whether the page scrolls or an element
+with its own scrollbar does (an app shell's `<main>`, a list pane). The scroll
+rule reads two signals:
+
+- **The page's frame deltas.** Screencast frames carry the page's scroll
+  offset, which makes its resting frames exact.
+- **The probe's `scrollstart`/`scrollend`.** These cover every scroller,
+  including where screencast offsets read 0, and carry exact positions.
+
+Whoever scrolled is decided by **scroll input** (wheel, touch, scroll keys, a
+scrollbar press), which the probe reports as `scrollinput`:
+
+- With input, the episode is the person's (`03`/`04`).
+- With none, the page scrolled itself (`05`/`06`).
+- Chrome can paint a wheel scroll before the input reaches the page, so an
+  episode that opens without input stays pending, and becomes the person's if
+  input follows before it settles.
+
+Every scroll capture carries `scrollEpisode` in its record:
+
+- the scroller;
+- the origin (`user` or `auto`) and the input kind;
+- the scroller's `from` and `to` positions, with `maxX`/`maxY`, for scroll depth.
+
+`from` is reported only when the probe saw the scroller at rest before it moved.
+It notes resting positions when the pointer arrives, when a touch starts, or
+when a scroll key goes down, never at the wheel itself.
+
+For an element, the "pre" frame is approximate, because screencast frames carry
+no element offsets. A navigation or the end of a session settles an open
+episode, so pairs are never left half-open.
+
 ### Attaching to a page that already has a document
 
 Enabling lifecycle reporting makes Chromium first report every milestone the
@@ -91,11 +155,11 @@ page yields `00-first`, not a stale `01-domcontentloaded`.
 | `@openuji/cdp` | The `CdpTransport` contract every host implements, the `RecordingTarget` a host hands out, an event router for hosts with one generic event callback, and a fake transport for tests. Isomorphic. |
 | `@openuji/client-probe` | The in-page DOM probe: an `installProbe(report)` core plus the CDP-binding entry, bundled by esbuild into an injectable IIFE source string. |
 | `@openuji/stream-compositor` | CDP screencast frames. |
-| `@openuji/stream-lifecycle` | Navigations (`navigated`) and Chromium's lifecycle milestones (`milestone`). |
+| `@openuji/stream-lifecycle` | Navigations (`navigated`, to a new document or within the same one) and Chromium's lifecycle milestones (`milestone`). |
 | `@openuji/stream-interaction` | Installs the probe, decodes its binding callbacks. |
 | `@openuji/fused` | Orchestrator: three sources on one transport, one ordered `DomainEvent` stream; `startRecording` runs it through the engine into sinks. |
-| `@openuji/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper. |
-| `@openuji/rules-document` | One-shot, `loaderId`-scoped rules, re-initialized per document. |
+| `@openuji/engine` | `reduce()` — the whole engine as one pure function — plus a thin stateful wrapper, and `view.ts`, which decides when a view begins. |
+| `@openuji/rules-document` | One-shot rules: first frame and farewell per view, lifecycle milestones per document. |
 | `@openuji/rules-interaction` | Repeating numbered episodes carrying DOM target metadata. |
 | `@openuji/sinks` | Optional capture destinations: console and PNG + NDJSON persistence. |
 | `@openuji/host-puppeteer` | Puppeteer-launched Chrome for Testing as a host: `launchPuppeteerTarget()`. The only library package that depends on Puppeteer. |
@@ -124,13 +188,14 @@ const recording = await startRecording(target.cdp, { sinks });      // whole pip
 They share one interface and nothing else, which is why they are separate
 packages:
 
-- **Document rules** fire at most once per document, are scoped to a `loaderId`,
-  and are re-initialized whenever the main frame navigates to a new document.
-  Adding or removing a milestone is an entry in an array — see
-  `lifecycleMilestoneRule`.
-- **Interaction rules** repeat within a document, number each episode, and tag
-  every capture with what the user touched. `scrollLifecycleRule` is a signal
-  processor over frame deltas, with tunable thresholds.
+- **Document rules** fire at most once: the first frame and the farewell once
+  per view, the lifecycle milestones once per document (they are scoped to its
+  `loaderId`, since only a load produces them). Adding or removing a milestone
+  is an entry in an array — see `lifecycleMilestoneRule`.
+- **Interaction rules** repeat within a view, number each episode from 01 in
+  every view, and tag every capture with what the user touched.
+  `scrollLifecycleRule` is a signal processor over frame deltas and the
+  probe's scroll signals, with tunable thresholds.
 
 ### Hosts
 
@@ -146,8 +211,9 @@ DevTools connection of their own, so no host does.
 | Desktop (later) | — | Electron `webContents.debugger` | the Chromium Electron ships |
 
 Headless (`UXR_HEADLESS=1`) runs `chrome-headless-shell`: full Chrome's headless
-mode reports every screencast frame at scroll offset 0, which blinds the scroll
-rules.
+mode reports every screencast frame at scroll offset 0. That blinds the scroll
+rule's frame-exact view of the page. The probe's scroll signals still catch the
+scroll, but only with approximate resting frames.
 
 Headed, the page lays out to its real window and reflows when the window is
 resized; the viewport size only sets the window's opening content area. The
@@ -197,8 +263,8 @@ runners live in `apps/stream-cli`:
 
 ```bash
 pnpm dev:compositor  https://my.fu-berlin.de/   # frame index, latency, scroll offset
-pnpm dev:lifecycle   https://my.fu-berlin.de/   # navigations, loaderIds, milestones
-pnpm dev:interaction https://my.fu-berlin.de/   # clicks and scrollend with DOM metadata
+pnpm dev:lifecycle   https://my.fu-berlin.de/   # navigations (SPA routes too), loaderIds, milestones
+pnpm dev:interaction https://my.fu-berlin.de/   # clicks, scroll input, every scroller's start/end, with DOM metadata
 pnpm dev:fused       https://my.fu-berlin.de/   # full detection pipeline, zero disk I/O
 ```
 

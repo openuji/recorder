@@ -1,13 +1,13 @@
-import { unchanged, type MilestoneRule } from '@openuji/engine';
+import { captureFor, unchanged, type MilestoneRule } from '@openuji/engine';
 import { DocumentLabel } from './labels.js';
 
 export type FirstFrameState = Readonly<{ saved: boolean }>;
 
-/** Captures the very first visual frame of a new document. */
+/** Captures the very first visual frame of a new view. */
 export const FirstFrameRule: MilestoneRule<FirstFrameState> = {
   id: 'first-frame',
   init: () => ({ saved: false }),
-  evaluate: (state, event, { currentDocument, currentFrame }) => {
+  evaluate: (state, event, { currentView, currentFrame }) => {
     if (state.saved || event.type !== 'frame' || !currentFrame) {
       return unchanged(state);
     }
@@ -15,14 +15,14 @@ export const FirstFrameRule: MilestoneRule<FirstFrameState> = {
     return {
       nextState: { saved: true },
       captures: [
-        {
-          documentId: currentDocument.id,
-          loaderId: currentDocument.loaderId,
-          url: currentDocument.url,
+        captureFor(currentView, {
           label: DocumentLabel.first,
           frame: currentFrame,
-          detail: 'First visual compositor frame for this document',
-        },
+          detail:
+            currentView.entry === 'route'
+              ? `First compositor frame after the route change to ${currentView.url}`
+              : 'First visual compositor frame for this document',
+        }),
       ],
     };
   },

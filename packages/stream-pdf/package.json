@@ -1,9 +1,9 @@
 {
-  "name": "@openuji/fused",
+  "name": "@openuji/stream-pdf",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Orchestrator: fuses the three CDP sources into one ordered domain event stream, and runs it through the rules engine into sinks.",
+  "description": "The PDF document kind: Chrome's PDF viewer reached through its frames, its load in the stack's terms, and the probe in the PDF.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -19,12 +19,7 @@
   "dependencies": {
     "@openuji/cdp": "workspace:*",
     "@openuji/core": "workspace:*",
-    "@openuji/engine": "workspace:*",
-    "@openuji/rules-document": "workspace:*",
-    "@openuji/rules-interaction": "workspace:*",
-    "@openuji/stream-compositor": "workspace:*",
-    "@openuji/stream-html": "workspace:*",
     "@openuji/stream-lifecycle": "workspace:*",
-    "@openuji/stream-pdf": "workspace:*"
+    "@openuji/stream-probe": "workspace:*"
   }
 }
